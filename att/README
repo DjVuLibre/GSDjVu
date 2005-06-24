@@ -1,0 +1,10 @@
+This directory contains the files downloaded today from AT&T.
+These files were distributed under the Common Public License Version 1.0.
+They form the basis for the gsdjvu distribution.
+
+	gdevdjv.tar.gz:	the archive downloaded from AT&T.
+	gsdjvu.djvu:	screendumps of the download process.
+
+- Leon Bottou
+  June 24th, 2005
+
