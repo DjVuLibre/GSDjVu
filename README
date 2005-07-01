@@ -1,7 +1,184 @@
 
 
-TO BE FILLED UP
+
+GSDJVU contains two specialized drivers for the program GHOSTSCRIPT.  
+These drivers process the PS or PDF file and produce an output that 
+separates the foreground objects from the background objects.  
+This separation can be used to generate DJVU documents.
+
+The separation algorithm is described in the following paper:
+
+* Leon Bottou, Patrick Haffner and Yann LeCun: "Conversion of 
+Digital Documents to Multilayer Raster Formats", Proceedings 
+of the Sixth International Conference on Document Analysis 
+and Recognition, IEEE, September 2001.
+
+An electronic version of this paper can be found at
+<http://leon.bottou.com/publications>
 
 
+
+
+LICENSING
+---------
+
+Things are not as simple as they should be.
 Please read attentively the contents of file COPYING.
+Make sure you understand it before building GSDJVU.
+
+
+
+BUILDING GSDJVU
+---------------
+
+The following instructions have been tested on Linux machines, 
+and should work reliably on most Unix based operating systems,
+including MacOS X and Cygwin.
+
+1) Download all necessary source files.
+
+    - Create a directory 'BUILD'
+    - Download the following files into this directory:
+        
+        ghostscript-8.15.tar.bz2
+        ghostscript-fonts-std-8.11.tar.gz
+        jpegsrc.v6b.tar.gz
+        libpng-1.2.6.tar.gz
+        zlib-1.2.1.tar.gz
+      
+      These files can be found under 
+        <ftp://mirror.cs.wisc.edu/pub/mirrors/ghost/GPL/gs815/>
+
+      The file versions suggested above were current at
+      the time gsdjvu was released. You can try to build gsdjvu 
+      using newer versions, but do not take it for granted.
+
+
+2) Run the shell script 'build-gsdjvu'.
+   Use the full pathname.
+   Example:
+  
+   $ /home/donald/gsdjvu/build-gsjvu
+
+   The script unpacks the source files, patches ghostscript
+   with the gdevdjvu driver, compiles ghostscript, and
+   selects which files should be kept around.
+   Please consult the script itself for more details.
+
+   The script install the final gsdjvu files in
+   a directory named 'BUILD/INST/gsdjvu'. 
+   You can copy this directory wherever you want.
+   This directory contains an executable command
+   named 'gsdjvu'. The simplest way to use it
+   is to create a symbolic link named 'gsdjvu'
+   in a directory included in your PATH...
+
+   Examples: 
+
+    - To install gsdjvu in /usr/local/lib/gsdjvu as root.
+
+        # cp -r BUILD/INST/gsdjvu  /usr/local/lib
+        # cd /usr/local/bin
+        # ln -s ../lib/gsdjvu/gsdjvu gsdjvu
+
+    - To install gsdjvu in your home directory, assuming 
+      that your command search path contains "$HOME/bin".
+
+        # cp -r BUILD/INST/gsdjvu $HOME/gsdjvu
+        # cd $HOME/bin
+        # ln -s ../gsdjvu/gsdjvu gsdjvu
+
+
+
+
+USING GSDJVU
+------------
+
+The simplest way to use gsdjvu is the 
+script 'djvudigital' that comes with djvulibre.
+This script provides for directly converting
+a PS or PDF file into a DJVU file.
+See the man page djvudigital(1).
+
+
+It is also possible to directly use gsdjvu directly.
+The gsdjvu executable is simply an instance of ghostscript
+with two additional drivers named 'djvumask' and 'djvusep'.
+
+* Driver 'djvumask' outputs the djvu segmentation mask as 
+  one or several bitonal image in PBM format. Black pixels
+  in the bitonal image indicate the foreground.
+
+  The following gsdjvu command processes the pages 
+  of 'myfile.ps' and stores the segmentation mask image(s) 
+  as PBM files named 'myfile001.pbm', 'myfile002.pbm', etc.  
+  Option '-r300' specify a resolution of 300 dots per inche.
+
+  $  gsdjvu -sDEVICE=djvumask -sOutputFile='myfile%03d.pbm' \
+       -r300 -dNOPAUSE -dBATCH -f myfile.ps -c quit
+
+* Driver 'djvusep' generates a "separated image file".
+  This file describes each page using two images:
+   - a high resolution foreground image with a small color 
+     palette and a transparent color.
+   - a low resolution background image.
+  This "separated image file" format is described in the 
+  djvulibre man page csepdjvu(1).  
+
+  Example:
+
+  $ gsdjvu -sDEVICE=djvusep -sOutputFile='myfile.sep' \
+       -r300 -dNOPAUSE -dBATCH -f myfile.ps -c quit
+
+Besides all ghostscrip options, 
+program 'gsdjvu' recignizes specific options
+when using the 'djvumask' and 'djvusep' drivers.
+The following documentation is copied from the
+comments in the driver source code "gdevdjvu.c":
+
+ ------------------------------------------------------------------------ 
+
+   This driver implements two devices:
+
+   * Device "djvumask" outputs the foreground mask as PBM files.
+
+   * Device "djvusep" outputs separation files containing one or several
+     pages. Each page contains the foreground encoded as a CRLE image
+     (cf. comments on Color RLE image below), possibly followed by a
+     subsampled PPM image representing the background, possibly followed by an
+     arbitrary number of comment lines starting with character '#'.
+     These files should be piped through the back-end encoder "csepdjvu".
+   
+   The following ghostscript command line options are supported:
+
+   * "-sOutputFile=<string>"  Selects the name of the output file.
+                              The usual Ghostscript conventions apply.
+
+   * "-dThreshold=<0..100>"   Selects the separation threshold.  Larger
+                              values put more things into the foreground
+                              layer.  Default value is 80
+
+   * "-dBgSubsample=<1-12>"   Selects the background subsampling factor.
+                              Default value is 3.
+
+   * "-dFgColors=<1-4000>"    Selects the maximal number of colors in the
+                              foreground layer. Default value is 256.
+
+   * "-dFgImgColors=<0-4000>" Images with less than the specified number of
+                              colors might be moved into the foreground.  
+                              Default value is 256.
+
+   * "-dMaxBitmap=<num>"      Specifies the maximal amount of memory used
+                              by the banding code when rendering the background
+                              layer.  Default is 10000000.
+
+   * "-dAutoHires"            This option enables an algorithm that lets
+                              device "djvusep" ignore -dBgSubsample and 
+			      generate a full resolution background layer
+			      when the foreground is empty.
+
+   * "-dReopenPerPage"        Specifies that the output file must be reopened
+                              for each page.  Default is to reopen if the 
+			      filename contains a "%d" specification for 
+			      the page number.
 

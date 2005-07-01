@@ -1,0 +1,329 @@
+#!/bin/sh
+#C- -------------------------------------------------------------------
+#C- build-gsdjvu - copyright (c) 2005 Leon Bottou.
+#C-
+#C- This software may be distributed under
+#C- the terms of the GNU General Public License. The license should have
+#C- accompanied the software or you may obtain a copy of the license
+#C- from the Free Software Foundation at http://www.fsf.org .
+#C-
+#C- This software may also be distributed under
+#C- the terms of the Common Public License 1.0. The license should have
+#C- accompanied the software or you may obtain a copy of the license
+#C- from the Free Software Foundation at http://www.fsf.org .
+#C-
+#C- This program is distributed in the hope that it will be useful,
+#C- but WITHOUT ANY WARRANTY; without even the implied warranty of
+#C- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#C- GNU General Public License for more details.
+#C- -------------------------------------------------------------------
+
+
+do_unpack=yes
+do_configure=yes
+do_make=yes
+do_install=yes
+
+
+
+# --------------------------------------------------
+# Check that we can locate the gsdjvu files
+
+gsfiles=`dirname $0`
+cd $gsfiles
+gsfiles=`pwd`
+if [ ! -d $gsfiles -o ! -r $gsfiles/gdevdjvu.c ] ; then
+    echo "Please run this script with its full pathname."
+    echo "This is used to locate related files."
+    exit 10
+fi
+
+
+# --------------------------------------------------
+# Locate the directory with the source files
+
+builddir=$gsfiles/BUILD
+cat <<EOF
+Please enter the path of the directory containing
+the necessary source files:
+  ghostscript-8.15.tar.bz2
+  ghostscript-fonts-std-8.11.tar.gz
+  jpegsrc.v6b.tar.gz
+  libpng-1.2.6.tar.gz
+  zlib-1.2.1.tar.gz
+See file README for more information.
+Simply type <enter> to accept the default.
+EOF
+echo -n "Enter directory [$builddir]"
+read tmp
+if [ -n "$tmp" ] ; then
+    builddir="$tmp"
+fi
+
+
+
+# --------------------------------------------------
+# Determine the source file versions
+
+gs_src=
+gs_font_src=
+jpeg_src=
+png_src=
+zlib_src=
+
+cd $builddir
+
+for n in * ; do
+  case "$n" in
+      ghostscript-[0-9]*.tar.*)            gs_src="$n" ;;
+      ghostscript-fonts-std-[0-9]*.tar.*)  gs_font_src="$n" ;;
+      jpegsrc.*.tar.*)                     jpeg_src="$n" ;;
+      libpng-*.tar.*)                      png_src="$n" ;;
+      zlib-*.tar.*)                       zlib_src="$n" ;;
+  esac
+done
+
+checkfile() {
+    if [ -r "$2" ] ; then
+        echo " Using source file: $2"
+    else
+        echo "Cannot find source file for $1"
+        exit 10;
+    fi
+}
+
+checkfile "GhostScript" "$gs_src" || exit 10
+checkfile "GhostScript Fonts" "$gs_font_src" || exit 10
+checkfile "IJG JPEG Library" "$jpeg_src" || exit 10
+checkfile "LibPNG" "$png_src" || exit 10
+checkfile "ZLib" "$zlib_src" || exit 10
+
+echo -n "Is this correct [Y/n] ?"
+read tmp
+case "$tmp" in
+n*) exit 10 ;;
+esac
+
+# --------------------------------------------------
+# Unpack the source files
+
+unpack() {
+  if [ $do_unpack = yes ] ; then
+      echo " Unpacking $1"
+      case "$1" in
+          *.zip)     
+              unzip -doqq "$1" 
+              ;;
+          *.tar.gz)  
+              gzip -d -c "$1" | tar xf -
+              ;;
+          *.tar.bz2) 
+              bzip2 -d -c "$1" | tar xf - 
+              ;;
+          *)  
+              echo "Unknown tarball format: $1"
+              exit 10
+              ;;
+      esac
+  fi
+}
+
+unpack $gs_src || exit 10
+gssrcdir="$gs_src"
+gssrcdir=`basename $gssrcdir .gz`
+gssrcdir=`basename $gssrcdir .bz2`
+gssrcdir=`basename $gssrcdir .zip`
+gssrcdir=`basename $gssrcdir .tar`
+if [ ! -d "$gssrcdir" ] ; then
+    echo "Cannot find directory "'"'"$gssrcdir"'"'"."
+    echo "Trying "'"'"ghostscript"'"'" instead."
+    gssrcdir="ghostscript"
+fi
+if [ ! -d "$gssrcdir" ] ; then
+    echo "Cannot find directory "'"'"$gssrcdir"'"'"."
+    exit 10
+fi
+
+cd $gssrcdir
+unpack "../$gs_font_src" || exit 10 
+unpack "../$jpeg_src" || exit 10
+unpack "../$png_src" || exit 10
+unpack "../$zlib_src" || exit 10
+
+
+# --------------------------------------------------
+# Patching ghostscript
+
+echo "Patching Ghostscript.."
+
+rm -f 2>/dev/null gsdjvu
+cp $gsfiles/gsdjvu gsdjvu
+
+rm -f 2>/dev/null src/gdevdjvu.c
+cp $gsfiles/gdevdjvu.c src/gdevdjvu.c
+
+rm -f 2>/dev/null lib/ps2utf8.ps
+cp $gsfiles/ps2utf8.ps lib/ps2utf8.ps
+
+test -r src/contrib.mak.gsdjvu && \
+  mv src/contrib.mak.gsdjvu src/contrib.mak
+cp src/contrib.mak src/contrib.mak.gsdjvu
+grep -q djvusep src/contrib.mak || \
+  cat $gsfiles/gsdjvu.mak >> src/contrib.mak
+
+for lib in jpeg libpng zlib ; do
+ for libn in $lib-* ; do
+   if test -r $lib ; then : ; else ln -s $libn $lib ; fi
+ done
+done
+
+echo "Done."
+
+
+# --------------------------------------------------
+# Configuring ghostscript
+
+if [ $do_configure = yes ] ; then
+    echo "Running 'configure'."
+    echo -n "Press <enter> to start."
+    read tmp
+    if ./configure --without-x --without-ijs --without-gimp-print
+        then
+        echo "Done."
+    else
+        echo "Command 'configure' failed!"
+        exit 10
+    fi
+fi
+
+
+# --------------------------------------------------
+# Patching Makefile
+
+echo "Patching 'Makefile'..."
+cp Makefile Makefile.gsdjvu
+
+# Remove drivers that are not needed
+sed < Makefile.gsdjvu > Makefile.tmp1 \
+    -e 's!$(DD)[a-z0-9]*jet[a-z0-9]*\.dev!!g' \
+    -e 's!$(DD)cdj[a-z0-9]*\.dev!!g' \
+    -e 's!$(DD)bj[a-z0-9]*\.dev!!g' \
+    -e 's!$(DD)pj[a-z0-9]*\.dev!!g' \
+    -e 's!$(DD)lj[a-z0-9]*\.dev!!g' \
+    -e 's!$(DD)pxl[a-z0-9]*\.dev!!g' \
+    -e 's!$(DD)uniprint\.dev!!g' \
+    -e 's!$(DD)x[a-z0-9]*\.dev!!g' \
+    -e 's!$(DD)ps[a-z0-9]*\.dev!!g' \
+    -e 's!$(DD)pdb[a-z0-9]*\.dev!!g' \
+    -e 's!$(DD)pdb[a-z0-9]*\.dev!!g' \
+    -e 's!^\(GS_LIB_DEFAULT=\).*$!\1/usr/lib/gsdjvu/lib:/usr/lib/gsdjvu/fonts!'
+
+# Add gsdjvu drivers
+if grep -q djvusep Makefile.tmp1
+then
+   mv Makefile.tmp1 Makefile
+else
+   sed < Makefile.tmp1 > Makefile \
+     -e 's!$(DD)bbox.dev!\0 $(DD)djvumask.dev $(DD)djvusep.dev!g' 
+   rm Makefile.tmp1
+fi
+echo "Done."
+
+
+
+# --------------------------------------------------
+# Compiling
+
+if [ $do_make = yes ] ; then
+    echo "Running 'make'."
+    echo -n "Press <enter> to start."
+    read tmp
+    if make 
+        then
+        echo "Done."
+    else
+        echo "Command 'make' failed!"
+        exit 10
+    fi
+fi
+    
+
+# --------------------------------------------------
+# Installing
+
+if [ $do_install = "yes" ] ; then
+    
+    echo "Preparing files to install."
+    echo -n "Press <enter> to start."
+    read tmp
+    
+    DESTDIR="${DESTDIR-}"
+    INSTALL="${INSTALL-./src/instcopy}"
+    MKDIRP="${MKDIRP-mkdir -p}"
+    
+    gsdir="$builddir/INST/gsdjvu"
+    $MKDIRP 2>/dev/null "$DESTDIR$gsdir"
+    $MKDIRP 2>/dev/null "$DESTDIR$gsdir/bin"
+    $MKDIRP 2>/dev/null "$DESTDIR$gsdir/fonts"
+    $MKDIRP 2>/dev/null "$DESTDIR$gsdir/lib"
+    
+    echo "  Programs"
+    $INSTALL -m 755  gsdjvu "$DESTDIR$gsdir/"
+    $INSTALL -m 755  bin/gs "$DESTDIR$gsdir/bin"
+    
+    echo "  Fonts"
+    for n in fonts/* ; do 
+        test -r $n && $INSTALL -m 644 $n "$DESTDIR$gsdir/fonts"
+    done
+    
+    echo "  Resources"
+    if test -d Resource ; then
+        for n in `find Resource -type d -print` ; do
+            $MKDIRP "$DESTDIR$gsdir/$n"
+        done
+        for n in `find Resource -type f -print` ; do
+            $INSTALL -m 644 $n "$DESTDIR$gsdir/$n"
+        done
+        test -r lib/gs_res.ps.gsdjvu || \
+            cp lib/gs_res.ps lib/gs_res.ps.gsdjvu
+        sed < lib/gs_res.ps.gsdjvu > lib/gs_res.ps \
+         -e 's:(/\(Resource/[a-zA-Z/]*\)):(\1) findlibfile {pop} {pop &} ifelse:'
+    fi
+    
+    echo "  Library files"
+    for n in lib/*.ps lib/Fontmap* lib/CIDFnmap* lib/cidfmap lib/xlatmap lib/FAPI* 
+    do
+        test -r $n && $INSTALL -m 644 $n "$DESTDIR$gsdir/lib"
+    done
+
+    echo "Done."
+fi
+
+
+
+# --------------------------------------------------
+# Congratulations
+
+cat <<EOF
+ =======================================================
+   Congratulations.
+   The final gsdjvu files are available in directory
+     $gsdir.
+   You can copy this directory wherever you want.
+   It contains an executable command named 'gsdjvu'. 
+   The simplest way to use it is to create a 
+   symbolic link named 'gsdjvu' in a directory included 
+   in your command search path. File 'README' contains
+   some examples.
+ =======================================================
+EOF
+
+
+# --------------------------------------------------
+# END
+
+### Local Variables: ***
+### mode: shell-script ***
+### End: ***
+
+

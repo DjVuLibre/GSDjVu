@@ -4,7 +4,7 @@
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
    -- Copyright (C) 2002-2005 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.1 2005-06-25 17:11:21 leonb Exp $
+   $Id: gdevdjvu.c,v 1.2 2005-07-01 20:23:56 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
@@ -2961,7 +2961,7 @@ crle_save(p2mem *mem,
        D R A W I N G     L I S T
    ====================================== */
 
-/* The first job of the maskpbm device is to build a list of drawlist records
+/* The first job of the gdevdjvu devices is to build a list of drawlist records
    representing all drawing operations.  Each drawlist record essentially
    contains a flag word (see below), a mask runmap describing its extent, 
    and a color index representing the single color of the drawing element
@@ -3601,6 +3601,7 @@ djvu_close_page(gx_device_djvu *cdev)
     cdev->gchrome = 0;
     cdev->fgpalette = 0;
     cdev->fgpalettesize = 0;
+    cdev->marks = 0;
 }
 
 /* GS callback: Output a page. */
