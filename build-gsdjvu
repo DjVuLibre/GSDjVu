@@ -285,6 +285,9 @@ if [ $do_install = "yes" ] ; then
     MKDIRP="${MKDIRP-mkdir -p}"
     
     gsdir="$builddir/INST/gsdjvu"
+    
+    rm -rf "$DESTDIR$gsdir" 1>/dev/null 2>&1
+
     $MKDIRP 2>/dev/null "$DESTDIR$gsdir"
     $MKDIRP 2>/dev/null "$DESTDIR$gsdir/bin"
     $MKDIRP 2>/dev/null "$DESTDIR$gsdir/fonts"
@@ -316,13 +319,12 @@ if [ $do_install = "yes" ] ; then
     echo "  Library files"
     for n in lib/*
     do
-      if [ -x "$n" ] && [ -r "$n.bat" -o -r "$n.ps" ] ; then
-          n=skip
-      fi
+      test -x "$n" && test -r "$n.ps" && n=skip
       case "`basename $n`" in
           # Prune files we know are not needed
-          *.ppd | *.upp | *.bat | *.sh | *.xbm ) ;; 
-          *.gsdjvu | *.cmd | dvipdf | skip ) ;;
+          *.ppd | *.upp | *.bat | *.sh | *.xbm | *.xpm | *.cmd ) ;; 
+          ps2pdf* | ps2ps | pdf2ps | dvipdf | *.gsdjvu ) ;;
+          gslj | gslp | gsbj | gsdj* | gsnd | skip ) ;;
           *) $INSTALL -m 644 "$n" "$DESTDIR$gsdir/lib" ;;
       esac
     done
