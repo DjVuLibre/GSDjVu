@@ -41,14 +41,13 @@ LICENCE INCOMPATIBILITY
 -------------------------
 
 The CPL a genuine free software license that is unfortunately
-incompatible with the GPL.  The incompatibility is a painful problem for
-GSDJVU.  Both ATT-GSDJVU and DJVULIBRE-GSDJVU contain the source code of
-a drive for the GHOSTSCRIPT program <http://www.ghostscript.com>, which
-is often distributed under the terms of the GPL .
+incompatible with the GPL.
 
-Although both DJVULIBRE-GSDJVU and the GHOSTSCRIPT source code are
-available under free software licenses, this incompatibility is a source
-of concern.
+Both ATT-GSDJVU and DJVULIBRE-GSDJVU contain the source code of a driver
+for the GHOSTSCRIPT program <http://www.ghostscript.com>, which is often
+distributed under the terms of the GPL .  Although both DJVULIBRE-GSDJVU
+and the GHOSTSCRIPT source code are available under free software
+licenses, the license incompatibility is a serious problem.
 
 We reproduce below the Free Software Foundation comments on the CPL:
 
