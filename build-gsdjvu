@@ -247,7 +247,7 @@ then
    mv Makefile.tmp1 Makefile
 else
    sed < Makefile.tmp1 > Makefile \
-     -e 's!$(DD)bbox.dev!\0 $(DD)djvumask.dev $(DD)djvusep.dev!g' 
+     -e 's!$(DD)bbox.dev!& $(DD)djvumask.dev $(DD)djvusep.dev!g' 
    rm Makefile.tmp1
 fi
 echo "Done."
