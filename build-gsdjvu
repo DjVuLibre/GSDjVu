@@ -313,9 +313,17 @@ if [ $do_install = "yes" ] ; then
     fi
     
     echo "  Library files"
-    for n in lib/*.ps lib/Fontmap* lib/CIDFnmap* lib/cidfmap lib/xlatmap lib/FAPI* 
+    for n in lib/*
     do
-        test -r $n && $INSTALL -m 644 $n "$DESTDIR$gsdir/lib"
+      if [ -x $n ] && [ -r $n.bat || -r $n.ps ] ; then
+          n = skip
+      fi
+      case "`basename $n`" in
+          # Prune files we know are not needed
+          *.ppd | *.upp | *.bat | *.sh | *.xbm ) ;; 
+          *.gsdjvu | *.cmd | dvipdf | skip ) ;;
+          *) test -r "$n" && $INSTALL -m 644 $n "$DESTDIR$gsdir/lib" ;;
+      esac
     done
 
     echo "Done."
