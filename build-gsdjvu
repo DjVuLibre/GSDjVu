@@ -73,10 +73,11 @@ the necessary source files:
   jpegsrc.v6b.tar.gz
   libpng-1.2.6.tar.gz
   zlib-1.2.1.tar.gz
-See file README for more information.
-Simply type <enter> to accept the default.
+See file README for more information. 
+Simply type <enter> to accept the default 
+directory "$builddir".
 EOF
-echo -n "Enter directory [$builddir]"
+echo -n "Enter the directory name: "
 read tmp
 if [ -n "$tmp" ] ; then
     builddir="$tmp"
@@ -315,14 +316,14 @@ if [ $do_install = "yes" ] ; then
     echo "  Library files"
     for n in lib/*
     do
-      if [ -x $n ] && [ -r $n.bat || -r $n.ps ] ; then
-          n = skip
+      if [ -x "$n" ] && [ -r "$n.bat" -o -r "$n.ps" ] ; then
+          n=skip
       fi
       case "`basename $n`" in
           # Prune files we know are not needed
           *.ppd | *.upp | *.bat | *.sh | *.xbm ) ;; 
           *.gsdjvu | *.cmd | dvipdf | skip ) ;;
-          *) test -r "$n" && $INSTALL -m 644 $n "$DESTDIR$gsdir/lib" ;;
+          *) $INSTALL -m 644 "$n" "$DESTDIR$gsdir/lib" ;;
       esac
     done
 
