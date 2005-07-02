@@ -40,6 +40,28 @@ fi
 
 
 # --------------------------------------------------
+# Make sure people understand the licensing issues
+
+cat <<EOF
+Did you carefully read the files COPYING, COPYING.CPL and COPYING.GPL 
+detailling the licensing terms that apply to this program?  
+In particular, do you understand the unfortunate consequences 
+of the incompatibility between the CPL and the GPL?
+EOF
+
+tmp=unk
+while [ "$tmp" != yes -a "$tmp" != YES ]; do
+  echo -n 'Please type "YES" or "NO": '
+  read tmp
+  if [ "$tmp" = no -o "$tmp" = NO ] ; then
+     echo "You must understand these terms before proceeding further."
+     exit 10
+  fi
+done
+
+
+
+# --------------------------------------------------
 # Locate the directory with the source files
 
 builddir=$gsfiles/BUILD

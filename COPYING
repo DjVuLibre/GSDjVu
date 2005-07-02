@@ -2,20 +2,161 @@
 
 
 
-+----------------------------------------------------------------------+
-+------excerpt from http://www.gnu.org/licenses/license-list.html------+
-+----------------------------------------------------------------------+
-|                                                                      |
-| Common Public License Version 1.0:                                   |
-|                                                                      |
-| This is a free software license but it is incompatible with the GPL. |
-|                                                                      |
-| The Common Public License is incompatible with the GPL because it    |
-| has various specific requirements that are not in the GPL.           |
-| For example, it requires certain patent licenses be given that the   |
-| GPL does not require. (We don't think those patent license           |
-| requirements are inherently a bad idea, but nonetheless they         |
-| are incompatible with the GNU GPL.)                                  |
-|                                                                      |
-+----------------------------------------------------------------------+
+HISTORY
+-------
+
+The DJVULIBRE-GSDJVU source code distribution is derived from the
+ATT-GSDJVU code released on the AT&T Labs Research web site under the
+terms of the Common Public License Version 1.0 (CPL) in June 2005.  This
+release was made possible thanks to the persistent efforts of several
+people from AT&T Labs, including Joe Sommer, Tom Frost and Patrick
+Haffner.
+
+
+
+
+
+LICENCE
+-------
+
+Since DJVULIBRE-GSDJVU is derived ATT-GSDJVU, it is distributed under
+the terms of the Common Public License V1.0 (CPL). The full text of the
+CPL is available in file COPYING.CPL.
+
+The differences between DJVULIBRE-GSDJVU and ATT-GSDJVU have been
+contributed by Leon Bottou. Recipients of the DJVULIBRE-GSDJVU source
+code distribution can use and copy these differences under the terms of
+the GNU General Public License. The full text of the GPL is available in
+file COPYING.CPL.
+
+In consequence, should AT&T decide to authorize the redistribution of
+ATT-GSDJVU under the terms of the GPL, the DJVULIBRE-GSDJVU source code
+would also be fully available under the terms of the GPL.
+
+
+
+
+
+LICENCE INCOMPATIBILITY
+-------------------------
+
+The CPL a genuine free software license that is unfortunately
+incompatible with the GPL.  The incompatibility is a painful problem for
+GSDJVU.  Both ATT-GSDJVU and DJVULIBRE-GSDJVU contain the source code of
+a drive for the GHOSTSCRIPT program <http://www.ghostscript.com>, which
+is often distributed under the terms of the GPL .
+
+Although both DJVULIBRE-GSDJVU and the GHOSTSCRIPT source code are
+available under free software licenses, this incompatibility is a source
+of concern.
+
+We reproduce below the Free Software Foundation comments on the CPL:
+
+ +----------------------------------------------------------------------+
+ +------excerpt from http://www.gnu.org/licenses/license-list.html------+
+ +----------------------------------------------------------------------+
+ |                                                                      |
+ | Common Public License Version 1.0:                                   |
+ |                                                                      |
+ | This is a free software license but it is incompatible with the GPL. |
+ |                                                                      |
+ | The Common Public License is incompatible with the GPL because it    |
+ | has various specific requirements that are not in the GPL.           |
+ | For example, it requires certain patent licenses be given that the   |
+ | GPL does not require. (We don't think those patent license           |
+ | requirements are inherently a bad idea, but nonetheless they         |
+ | are incompatible with the GNU GPL.)                                  |
+ |                                                                      |
+ +----------------------------------------------------------------------+
+
+The requirements of the CPL, including the incompatible requirements
+identified by the FSF, are detailled in section 3 of the CPL.  These
+requirements only apply to the redistribution of CPL licensed programs.
+
+Therefore we believe that anyone is free to download both the
+DJVULIBRE-GSDJVU and GHOSTSCRIPT source code packages and to use them as
+they see fit. In particular, anyone can combine and compile these source
+code packages. However, it is not possible to redistribute the GSDJVU
+executable, because it is not possible to satisfy the redistribution
+requirements of both the CPL and the GPL.
+
+The above statement is merely the expression of our belief.  It should
+not be understood as a guarantee of any kind. Copyleft license
+compatibility is a complicated issue. You must form your own opinion
+before using DJVULIBRE-GSDJVU.
+
+
+
+
+HOW TO FIX THIS UNFORTUNATE SITUATION ?
+---------------------------------------
+
+First of all, you should not ignore the current licenses.  
+In particular, we strongly advise you against redistributing
+combinations of DJVULIBRE-GSDJVU and GHOSTSCRIPT to anyone.
+
+We believe that AT&T chose the CPL in good faith, merely
+because this was the path of least administrative resistance. 
+The only practical way to solve the incompatibility issue is 
+to politely ask our AT&T friends to clarify their intentions.
+
+Please send a brief email to Tom Frost <tfrost@att.com>
+and Joe Sommer <jmsommer@att.com>.
+
+- First thank them warmly because they worked very hard and 
+  used their hard earned professional credit to help 
+  release GSDJVU under a free license.
+
+- Second give your best argument to justify authorizing the
+  redistribution of GSDJVU under the GPL. 
+  Here are a few examples:
+
+    * Whatever the purposes of the ATT-GSDJVU open source release are, 
+      this purpose would be better served by licensing terms that
+      facilitate the use of GSDJVU.
+
+    * Legally, what does it mean to release a source code (ATT-GSDJVU),
+      whose operation technically depends on a second program (GHOSTSCRIPT), 
+      under terms that are incompatible with those of this second program.
+
+
+
+
+OTHER USES OF GSDJVU BESIDES DJVU
+---------------------------------
+
+Joe Sommer and Tom Frost are in charge of licensing AT&T Labs
+technologies.  They receive professional credit for licensing
+arrangements that generate cash.  They also are pragmatic people who
+hate to see a technology die on a shelf for stupid reasons, because this
+is a situation where everybody looses. This is why they are helping us.
+
+In return we would like to drop a few ideas on commercialy feasible uses
+of the GSDJVU technology besides DJVU compression. Do not hesitate to
+contact Joe Sommer to commercially license GSDJVU for such purposes.
+
+GSDJVU is a very powerful technology that analyzes each page of an
+electronically generated document and decomposes it as (1) a low
+resolution continuous color background image, and (2) a collection of
+high resolution foreground objects having each a single flat color.
+
+Such a decomposition can be very useful:
+
+* PDF Optimization --- The quality and size of PDF files vary
+  dramatically according to the quality of the input material. 
+  The GSDJVU decomposition is a good basis to significatively 
+  reduce the size of badly authored PDF files.
+
+* Printing --- Most printers represent colors with dithering. 
+  Large dithering patterns give accurate colors at the 
+  expense of resolution.  Small dithering patterns give 
+  coarser colors with higher resolution.  The GSDJVU decomposion 
+  neatly identifies which parts of a page are best printed 
+  using small or large dithering patterns.
+
+* Helping vision challenged persons --- The GSDJVU decomposition 
+  allows for dimming graphical embellishments that make reading 
+  difficult and enhancing the contrast of the meaningful 
+  text and graphics.
+
 
