@@ -42,12 +42,18 @@ including MacOS X and Cygwin.
         
         ghostscript-8.15.tar.bz2
         ghostscript-fonts-std-8.11.tar.gz
-        jpegsrc.v6b.tar.gz
-        libpng-1.2.6.tar.gz
-        zlib-1.2.1.tar.gz
+        [optional] jpegsrc.v6b.tar.gz 
+        [optional] libpng-1.2.6.tar.gz
+        [optional] zlib-1.2.1.tar.gz
       
       These files can be found under 
         <ftp://mirror.cs.wisc.edu/pub/mirrors/ghost/GPL/gs815/>
+
+      If you do not provide any of the last three files,
+      jpegsrc, libpng and zlib, the building script will
+      attempt to use the system wide libraries.
+      This only works if the corresponding development files
+      are installed on your system.
 
       The file versions suggested above were current at
       the time gsdjvu was released. You can try to build gsdjvu 

@@ -70,9 +70,9 @@ Please enter the path of the directory containing
 the necessary source files:
   ghostscript-8.15.tar.bz2
   ghostscript-fonts-std-8.11.tar.gz
-  jpegsrc.v6b.tar.gz
-  libpng-1.2.6.tar.gz
-  zlib-1.2.1.tar.gz
+  [optional] jpegsrc.v6b.tar.gz 
+  [optional] libpng-1.2.6.tar.gz
+  [optional] zlib-1.2.1.tar.gz
 See file README for more information. 
 Simply type <enter> to accept the default 
 directory "$builddir".
