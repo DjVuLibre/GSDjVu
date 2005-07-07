@@ -110,16 +110,21 @@ checkfile() {
     if [ -r "$2" ] ; then
         echo " Using source file: $2"
     else
-        echo "Cannot find source file for $1"
-        exit 10;
+        echo " Cannot find source file for $1."
+        false
     fi
 }
 
-checkfile "GhostScript" "$gs_src" || exit 10
-checkfile "GhostScript Fonts" "$gs_font_src" || exit 10
-checkfile "IJG JPEG Library" "$jpeg_src" || exit 10
-checkfile "LibPNG" "$png_src" || exit 10
-checkfile "ZLib" "$zlib_src" || exit 10
+checkfile "GhostScript" "$gs_src" \
+    || exit 10
+checkfile "GhostScript Fonts" "$gs_font_src" \
+    || exit 10
+checkfile "IJG JPEG Library" "$jpeg_src" \
+    || echo " Trying to use system library instead."
+checkfile "LibPNG" "$png_src" \
+    || echo " Trying to use system library instead."
+checkfile "ZLib" "$zlib_src" \
+    || echo " Trying to use system library instead."
 
 echo -n "Is this correct [Y/n] ?"
 read tmp
@@ -151,12 +156,18 @@ unpack() {
   fi
 }
 
-unpack $gs_src || exit 10
 gssrcdir="$gs_src"
 gssrcdir=`basename $gssrcdir .gz`
 gssrcdir=`basename $gssrcdir .bz2`
 gssrcdir=`basename $gssrcdir .zip`
 gssrcdir=`basename $gssrcdir .tar`
+
+if [ -d "$gssrcdir" ] ; then
+    rm -rf "$gssrcdir"
+fi
+
+unpack $gs_src || exit 10
+
 if [ ! -d "$gssrcdir" ] ; then
     echo "Cannot find directory "'"'"$gssrcdir"'"'"."
     echo "Trying "'"'"ghostscript"'"'" instead."
@@ -169,9 +180,9 @@ fi
 
 cd $gssrcdir
 unpack "../$gs_font_src" || exit 10 
-unpack "../$jpeg_src" || exit 10
-unpack "../$png_src" || exit 10
-unpack "../$zlib_src" || exit 10
+test -s "$jpeg_src" && ( unpack "../$jpeg_src" || exit 10 )
+test -s "$png_src"  && ( unpack "../$png_src"  || exit 10 )
+test -s "$zlib_src" && ( unpack "../$zlib_src" || exit 10 )
 
 
 # --------------------------------------------------
@@ -208,8 +219,8 @@ echo "Done."
 
 if [ $do_configure = yes ] ; then
     echo "Running 'configure'."
-    echo -n "Press <enter> to start."
-    read tmp
+    #echo -n "Press <enter> to start."
+    #read tmp
     if ./configure --without-x --without-ijs --without-gimp-print
         then
         echo "Done."
@@ -259,8 +270,8 @@ echo "Done."
 
 if [ $do_make = yes ] ; then
     echo "Running 'make'."
-    echo -n "Press <enter> to start."
-    read tmp
+    #echo -n "Press <enter> to start."
+    #read tmp
     if make 
         then
         echo "Done."
@@ -277,8 +288,8 @@ fi
 if [ $do_install = "yes" ] ; then
     
     echo "Preparing files to install."
-    echo -n "Press <enter> to start."
-    read tmp
+    #echo -n "Press <enter> to start."
+    #read tmp
     
     DESTDIR="${DESTDIR-}"
     INSTALL="${INSTALL-./src/instcopy}"
