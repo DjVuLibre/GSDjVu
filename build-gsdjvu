@@ -180,9 +180,9 @@ fi
 
 cd $gssrcdir
 unpack "../$gs_font_src" || exit 10 
-test -s "$jpeg_src" && ( unpack "../$jpeg_src" || exit 10 )
-test -s "$png_src"  && ( unpack "../$png_src"  || exit 10 )
-test -s "$zlib_src" && ( unpack "../$zlib_src" || exit 10 )
+test -n "$jpeg_src" && ( unpack "../$jpeg_src" || exit 10 )
+test -n "$png_src"  && ( unpack "../$png_src"  || exit 10 )
+test -n "$zlib_src" && ( unpack "../$zlib_src" || exit 10 )
 
 
 # --------------------------------------------------
