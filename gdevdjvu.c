@@ -4,7 +4,7 @@
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
    -- Copyright (C) 2002-2005 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.2 2005-07-01 20:23:56 leonb Exp $
+   $Id: gdevdjvu.c,v 1.3 2005-07-08 21:29:36 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
@@ -393,6 +393,7 @@ p2mem_resize(p2mem *mem, void *vdata, uint newsize)
         /* Fallback: copy data */
         data = p2mem_alloc(mem, newsize);
         if (!data) return 0;
+        if (log2 > p2mem_log2_max) blocksize=newsize;
         memcpy(data, vdata, ((blocksize<newsize)?blocksize:newsize)-2);
         p2mem_free(mem, vdata);
         return data;
