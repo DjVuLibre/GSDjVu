@@ -53,9 +53,11 @@ including MacOS X and Cygwin.
       jpegsrc, libpng and zlib, the building script will
       attempt to use the system wide libraries.
       This only works if the corresponding development files
-      are installed on your system.
+      are installed on your system. This usually is better 
+      because the resulting program benefits from the latest 
+      installed versions (including bug fix and security patches.)
 
-      The file versions suggested above were current at
+      The ghostscript versions suggested above were current at
       the time gsdjvu was released. You can try to build gsdjvu 
       using newer versions, but do not take it for granted.
 
