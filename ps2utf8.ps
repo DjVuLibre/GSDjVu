@@ -559,7 +559,11 @@ systemdict /COMPLEX known /COMPLEX exch def
      currentfont /CIDFontType known { 
        cid2utf8 
      }{
-       pop false
+       dup type /integertype eq {
+         int2utf8 true
+       }{
+         pop false
+       } ifelse
      } ifelse
    } ifelse
    % stack: <code> (<stringutf8> true | false)
