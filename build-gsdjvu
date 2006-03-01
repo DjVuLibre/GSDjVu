@@ -247,7 +247,7 @@ sed < Makefile.gsdjvu > Makefile.tmp1 \
     -e 's!$(DD)pxl[a-z0-9]*\.dev!!g' \
     -e 's!$(DD)uniprint\.dev!!g' \
     -e 's!$(DD)x[a-z0-9]*\.dev!!g' \
-    -e 's!$(DD)ps[a-z0-9]*\.dev!!g' \
+    -e 's!$(DD)ps[a-vx-z0-9]*\.dev!!g' \
     -e 's!$(DD)pdb[a-z0-9]*\.dev!!g' \
     -e 's!$(DD)pdb[a-z0-9]*\.dev!!g' \
     -e 's!^\(GS_LIB_DEFAULT=\).*$!\1/usr/lib/gsdjvu/lib:/usr/lib/gsdjvu/fonts!'
