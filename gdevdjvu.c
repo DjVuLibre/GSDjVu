@@ -4,7 +4,7 @@
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
    -- Copyright (C) 2002-2005 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.3 2005-07-08 21:29:36 leonb Exp $
+   $Id: gdevdjvu.c,v 1.4 2007-05-14 04:01:45 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
@@ -129,11 +129,34 @@ private void lbassertfail(const char *, int) __attribute__ ((noreturn));
 extern void abort(void) __attribute__ ((noreturn));
 #endif
 
+/* STDOUT - for regular printout */
+#ifdef gs_stdout
+# define STDOUT gs_stdout
+#else
+# define STDOUT (cdev->memory->gs_lib_ctx->fstdout)
+#endif
+
+/* STDERR - for fatal errors and debug code */
+#ifdef gs_stderr
+# define STDERR gs_stderr
+#else
+# define STDERR gs_get_stderr()
+private FILE*
+gs_get_stderr(void) 
+{
+    static FILE *thestderr = 0;
+    if (! thestderr) thestderr = fdopen(2,"a");
+    return thestderr;
+}
+#endif
+
+
 /* Called by macro ASSERT defined in the H file */
 private void 
 lbassertfail(const char *file, int line)
 {
-    fprintf(stderr,"Internal error at %s:%d\n", file, line);
+    fprintf(STDERR,"Internal error at %s:%d\n", file, line);
+    fclose(STDERR);
     abort();
 }
 
@@ -165,12 +188,9 @@ lbassertfail(const char *file, int line)
 #define p2mem_align       obj_align_mod
 
 /* Parent allocator */
-#define p2mem_parent_alloc(size) \
-  (void *)gs_alloc_bytes_immovable(&gs_memory_default, size, "p2mem")
-#define p2mem_parent_resize(data, newsize) \
-  (void*)gs_resize_object(&gs_memory_default, data, newsize, "p2mem")
-#define p2mem_parent_free(data) \
-   gs_free_object(&gs_memory_default, data, "p2mem")
+#define p2mem_parent_alloc(size)           malloc(size)
+#define p2mem_parent_resize(data, newsize) realloc(data, newsize)
+#define p2mem_parent_free(data)            free(data)
 
 /* Internal: minimal and maximal size of small objects */
 #ifndef arch_log2_sizeof_ptr
@@ -409,7 +429,7 @@ p2mem_diag(p2mem *mem)
     byte *ptr, **pptr;
     int cbnum = 0;
     int cctotalfree = 0;
-    fprintf(stderr,"cc: %d-%d=%d  (", 
+    fprintf(STDERR,"cc: %d-%d=%d  (", 
             mem->cc_total, mem->cc_used, 
             mem->cc_total - mem->cc_used );
     for (i=p2mem_log2_min; i<p2mem_log2_max+1; i++) {
@@ -417,16 +437,16 @@ p2mem_diag(p2mem *mem)
         ptr = mem->freelist[i];
         while (ptr) { ccfree += 1; ptr = *(byte**)ptr; }
         cctotalfree += (1<<i) * ccfree;
-        fprintf(stderr," %d", ccfree);
+        fprintf(STDERR," %d", ccfree);
     }
-    fprintf(stderr," ) = %d ", cctotalfree);
+    fprintf(STDERR," ) = %d ", cctotalfree);
     pptr = &mem->cb;
     while ((ptr = *pptr)) {
         ASSERT( ((byte***)ptr)[1] == pptr );
         pptr = (byte**)ptr;
         cbnum += 1;
     }
-    fprintf(stderr," cb: %d\n", cbnum);
+    fprintf(STDERR," cb: %d\n", cbnum);
 }
 #endif
 
@@ -3054,40 +3074,40 @@ drawlist_remove(p2mem *mem, drawlist_head *head, drawlist *d)
 private void
 drawlist_print(drawlist *dl)
 {
-    fprintf(stderr,"  --");
+    fprintf(STDERR,"  --");
     if (dl->flags & DLIST_FOREGROUND)
-	fprintf(stderr," fg");
+	fprintf(STDERR," fg");
     else if (dl->flags & DLIST_BACKGROUND)
-	fprintf(stderr," bg");
+	fprintf(STDERR," bg");
     if (dl->mask)
-        fprintf(stderr," %dx%d+%d+%d", 
+        fprintf(STDERR," %dx%d+%d+%d", 
                 dl->mask->xmax - dl->mask->xmin +1, 
                 dl->mask->ymax - dl->mask->ymin +1, 
                 dl->mask->xmin, 
                 dl->mask->ymin );
     if (dl->color != gx_no_color_index)
-        fprintf(stderr," purecolor=%06x", (uint)(dl->color));
+        fprintf(STDERR," purecolor=%06x", (uint)(dl->color));
     if (dl->flags & DLIST_HASCOLOR)
-        fprintf(stderr," hascolor");
+        fprintf(STDERR," hascolor");
     else if (dl->flags & DLIST_HASGRAY)
-        fprintf(stderr," hasgray");
+        fprintf(STDERR," hasgray");
     if (dl->flags & DLIST_INPURE)
-        fprintf(stderr," inpure");
+        fprintf(STDERR," inpure");
     if (dl->flags & DLIST_PATH)
-        fprintf(stderr," path");
+        fprintf(STDERR," path");
     if (dl->flags & DLIST_PATH_FILL)
-        fprintf(stderr," fill");
+        fprintf(STDERR," fill");
     if (dl->flags & DLIST_TEXT)
-        fprintf(stderr," text");
+        fprintf(STDERR," text");
     if (dl->perimeter)
-	fprintf(stderr," peri=%d", dl->perimeter);
+	fprintf(STDERR," peri=%d", dl->perimeter);
     if (dl->area)
-	fprintf(stderr," area=%d", dl->area);
+	fprintf(STDERR," area=%d", dl->area);
     if (dl->palcolor)
-	fprintf(stderr," palcolor=%d", dl->palcolor);
+	fprintf(STDERR," palcolor=%d", dl->palcolor);
     if (dl->chromepos)
-	fprintf(stderr," haschrome");
-    fprintf(stderr,"\n");
+	fprintf(STDERR," haschrome");
+    fprintf(STDERR,"\n");
 }
 #endif
 
@@ -4298,7 +4318,7 @@ lowcolor_separate(gx_device_djvu *cdev, drawlist *dl,
     ncolors = colorhash->nelems;
 #ifdef DEBUG
     if (gs_debug_c(DEBUG_CHAR_LOCOLOR))
-        fprintf(stderr,"LC: perim=%d hardperim=%d ncolors=%d\n", 
+        fprintf(STDERR,"LC: perim=%d hardperim=%d ncolors=%d\n", 
                 perim, hardperim, ncolors);
 #endif
     while (perim >= 0x1000000) { perim >>= 1; hardperim >>= 1; }
@@ -4370,7 +4390,7 @@ lowcolor_process_one(gx_device_djvu *cdev, drawlist *dl)
 #ifdef DEBUG
     /* Number of colors is small enough */
     if (gs_debug_c(DEBUG_CHAR_LOCOLOR)) {
-        fprintf(stderr, "LC: examining");
+        fprintf(STDERR, "LC: examining");
         drawlist_print(dl);
     }
 #endif
@@ -4399,7 +4419,7 @@ lowcolor_process_one(gx_device_djvu *cdev, drawlist *dl)
     dl->chromepos = 0;
 #ifdef DEBUG
     if (gs_debug_c(DEBUG_CHAR_LOCOLOR)) {
-        fprintf(stderr,"LC: becomes");
+        fprintf(STDERR,"LC: becomes");
         drawlist_print(dl);
     }
 #endif      
@@ -4414,7 +4434,7 @@ lowcolor_process_one(gx_device_djvu *cdev, drawlist *dl)
         cdmap[i]->map = 0;
 #ifdef DEBUG
         if (gs_debug_c(DEBUG_CHAR_LOCOLOR)) {
-            fprintf(stderr,"LC: plus");
+            fprintf(STDERR,"LC: plus");
             drawlist_print(newdl);
         }
 #endif
@@ -4561,7 +4581,7 @@ identify_bg_candidates(gx_device_djvu *cdev)
         }
 #ifdef DEBUG
         if (gs_debug_c(DEBUG_CHAR_DLIST) && dl) {
-            fprintf(stderr,"bgcan ");
+            fprintf(STDERR,"bgcan ");
             drawlist_print(dl);
         }
 #endif
@@ -4732,7 +4752,7 @@ classify_drawlist(p2mem *mem, gx_device_djvu *cdev,
         if (code < 0) return code;
 #ifdef DEBUG
         if (debug)
-            fprintf(stderr,"---- %3d * %6d ? %6d\n", 
+            fprintf(STDERR,"---- %3d * %6d ? %6d\n", 
                     dist, bg_perim, clipped_perim);
 #endif        
         /* Renormalize in order to avoid integer overflows */
@@ -4922,9 +4942,9 @@ djvumask_process(gx_device_djvu *cdev)
     }
     /* Print message */
     if (! cdev->quiet) {
-        fprintf(stdout,"Page %dx%d (%s )\n", 
+        fprintf(STDOUT, "Page %dx%d (%s )\n", 
                 cdev->width, cdev->height, comment);
-        fflush(stdout);
+        fflush(STDOUT);
     }
     /* Terminate */
     runmap_free(fgmap);
@@ -4979,7 +4999,7 @@ quantize_fg_colors(gx_device_djvu *cdev)
         goto xit;
 #ifdef DEBUG
     if (gs_debug_c(DEBUG_CHAR_COLOR))
-	fprintf(stderr,"Found %d colors, reduced to %d colors\n",
+	fprintf(STDERR,"Found %d colors, reduced to %d colors\n",
 		colorhash->nelems, cdev->fgpalettesize);
 #endif
     /* Fill palcolor in foreground drawlist elements */
@@ -5081,7 +5101,7 @@ save_background_no_subsampling(gx_device_djvu *cdev)
     for(bandy=0; bandy < cdev->height; bandy += bandh) {
 #ifdef DEBUG
         if (gs_debug_c(DEBUG_CHAR_BG))
-            fprintf(stderr,"band %d .. %d\n",bandy, bandy+bandh);
+            fprintf(STDERR,"band %d .. %d\n",bandy, bandy+bandh);
 #endif
         bandh = min(bandh, cdev->height - bandy);
         memset(band, 0xff, bandsize);
@@ -5197,7 +5217,7 @@ save_background(gx_device_djvu *cdev, runmap *mask, int subsample)
         int ry;
 #ifdef DEBUG
         if (gs_debug_c(DEBUG_CHAR_BG))
-            fprintf(stderr,"band %d .. %d\n", bandy, bandy+bandh);
+            fprintf(STDERR,"band %d .. %d\n", bandy, bandy+bandh);
 #endif
         /* Render band */
         bandh = min(bandh, cdev->height - bandy);
@@ -5324,9 +5344,9 @@ djvusep_process(gx_device_djvu *cdev)
     }
     /* Print message */
     if (! cdev->quiet) {
-        fprintf(stdout,"Page %dx%d (%s )\n",
+        fprintf(STDOUT,"Page %dx%d (%s )\n",
                 cdev->width, cdev->height, comment);
-        fflush(stdout);
+        fflush(STDOUT);
     }
     /* Terminate */
     runmap_free(fgmap);
@@ -5382,9 +5402,13 @@ zcshowglyph(i_ctx_t *i_ctx_p)
 		       TEXT_FROM_STRING | TEXT_DO_NONE | TEXT_INTERVENE) ) {
         push(1);
         glyph = gs_text_current_glyph(osenum);
-        if (glyph != gs_no_glyph)
+        if (glyph != gs_no_glyph) {
+#ifdef gs_memory_default
             glyph_ref(glyph, op);
-        else
+#else
+            glyph_ref(imemory, glyph, op);
+#endif
+        } else
             make_int(op, gs_text_current_char(osenum));
         return 0;
     }
@@ -5498,7 +5522,12 @@ zdjvutextmark(i_ctx_t *i_ctx_p)
     /* Check argument types */
     check_op(5);
     if ( (code = num_params(op, 4, xy)) < 0 ||
-         (code = obj_string_data(op - 4, &utf8, &utf8len)) < 0 )
+#ifdef gs_memory_default
+         (code = obj_string_data(op - 4, &utf8, &utf8len)) < 0 
+#else
+         (code = obj_string_data(imemory, op - 4, &utf8, &utf8len)) < 0 
+#endif
+         )
         return code;
     /* Check that current device is djvusep */
     dev = gs_currentdevice(igs);
