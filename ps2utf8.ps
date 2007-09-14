@@ -67,6 +67,7 @@ currentglobal /setglobal load true setglobal
 
 % Define dictionary for ps2utf8 code
 systemdict begin
+/ProvideUnicode true def
 /.ps2utf8 100 dict def
 .ps2utf8 begin
 
@@ -554,7 +555,21 @@ systemdict /COMPLEX known /COMPLEX exch def
 % Returns a space for unknown translation
 /makeutf8 {
    dup type /nametype eq {
-     glyph2utf8  
+     currentfont /ToUnicode .knownget { === } if
+     currentfont /FontInfo .knownget {
+       /GlyphNames2Unicode .knownget {
+           % stack: <glyph> <dict>
+           1 index .knownget {
+             exch pop int2utf8
+             % stack: <utf8string>
+           } if
+       } if
+     } if
+     dup type /nametype eq {
+       glyph2utf8
+     } {
+       true
+     } ifelse
    }{
      currentfont /CIDFontType known { 
        cid2utf8 
