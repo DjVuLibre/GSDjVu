@@ -555,7 +555,6 @@ systemdict /COMPLEX known /COMPLEX exch def
 % Returns a space for unknown translation
 /makeutf8 {
    dup type /nametype eq {
-     currentfont /ToUnicode .knownget { === } if
      currentfont /FontInfo .knownget {
        /GlyphNames2Unicode .knownget {
            % stack: <glyph> <dict>
