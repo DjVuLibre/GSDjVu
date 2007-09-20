@@ -4,7 +4,7 @@
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
    -- Copyright (C) 2002-2005 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.4 2007-05-14 04:01:45 leonb Exp $
+   $Id: gdevdjvu.c,v 1.5 2007-09-20 17:03:25 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
@@ -64,6 +64,9 @@
 			      generate a full resolution background layer
 			      when the foreground is empty.
 
+   * "-dExtractText"          This option causes the generation of sep file 
+                              comments describing the textual information.
+
    * "-dReopenPerPage"        Specifies that the output file must be reopened
                               for each page.  Default is to reopen if the 
 			      filename contains a "%d" specification for 
@@ -84,16 +87,19 @@
 #include "gsmemory.h"
 #include "gsdevice.h"
 #include "gstypes.h"
-#include "gsrect.h"
 #include "gscdefs.h"
+#include "gsrect.h"
+#include "gscoord.h"
 #include "gsstruct.h"
 #include "gsmalloc.h"
 #include "gsparam.h"
+#include "gspath.h"
 #include "gx.h"
 #include "gxstdio.h"
 #include "gxdevice.h"
 #include "gxdevmem.h"
 #include "gxbitmap.h"
+#include "gxfont.h"
 #include "gxgetbit.h"
 #include "gximage.h"
 #include "gxlum.h"
@@ -129,37 +135,25 @@ private void lbassertfail(const char *, int) __attribute__ ((noreturn));
 extern void abort(void) __attribute__ ((noreturn));
 #endif
 
+/* Forward declarations */
+typedef struct gx_device_djvu_s gx_device_djvu;
+
 /* STDOUT - for regular printout */
 #ifdef gs_stdout
 # define STDOUT gs_stdout
 #else
-# define STDOUT (cdev->memory->gs_lib_ctx->fstdout)
+# define STDOUT (((gx_device*)cdev)->memory->gs_lib_ctx->fstdout)
 #endif
-
-/* STDERR - for fatal errors and debug code */
-#ifdef gs_stderr
-# define STDERR gs_stderr
-#else
-# define STDERR gs_get_stderr()
-private FILE*
-gs_get_stderr(void) 
-{
-    static FILE *thestderr = 0;
-    if (! thestderr) thestderr = fdopen(2,"a");
-    return thestderr;
-}
-#endif
-
 
 /* Called by macro ASSERT defined in the H file */
 private void 
 lbassertfail(const char *file, int line)
 {
-    fprintf(STDERR,"Internal error at %s:%d\n", file, line);
-    fclose(STDERR);
+    FILE *serr = fdopen(2,"a");
+    fprintf(serr,"Internal error at %s:%d\n", file, line);
+    fclose(serr);
     abort();
 }
-
 
 
 /* ======================================
@@ -423,13 +417,13 @@ p2mem_resize(p2mem *mem, void *vdata, uint newsize)
 
 #ifdef DEBUG
 private void
-p2mem_diag(p2mem *mem)
+p2mem_diag(p2mem *mem, gx_device_djvu *cdev)
 {
     int i;
     byte *ptr, **pptr;
     int cbnum = 0;
     int cctotalfree = 0;
-    fprintf(STDERR,"cc: %d-%d=%d  (", 
+    fprintf(STDOUT,"cc: %d-%d=%d  (", 
             mem->cc_total, mem->cc_used, 
             mem->cc_total - mem->cc_used );
     for (i=p2mem_log2_min; i<p2mem_log2_max+1; i++) {
@@ -437,16 +431,16 @@ p2mem_diag(p2mem *mem)
         ptr = mem->freelist[i];
         while (ptr) { ccfree += 1; ptr = *(byte**)ptr; }
         cctotalfree += (1<<i) * ccfree;
-        fprintf(STDERR," %d", ccfree);
+        fprintf(STDOUT," %d", ccfree);
     }
-    fprintf(STDERR," ) = %d ", cctotalfree);
+    fprintf(STDOUT," ) = %d ", cctotalfree);
     pptr = &mem->cb;
     while ((ptr = *pptr)) {
         ASSERT( ((byte***)ptr)[1] == pptr );
         pptr = (byte**)ptr;
         cbnum += 1;
     }
-    fprintf(STDERR," cb: %d\n", cbnum);
+    fprintf(STDOUT," cb: %d\n", cbnum);
 }
 #endif
 
@@ -3072,42 +3066,42 @@ drawlist_remove(p2mem *mem, drawlist_head *head, drawlist *d)
 /* Compact display for debugging purposes. */
 #ifdef DEBUG
 private void
-drawlist_print(drawlist *dl)
+drawlist_print(drawlist *dl, gx_device_djvu *cdev)
 {
-    fprintf(STDERR,"  --");
+    fprintf(STDOUT,"  --");
     if (dl->flags & DLIST_FOREGROUND)
-	fprintf(STDERR," fg");
+	fprintf(STDOUT," fg");
     else if (dl->flags & DLIST_BACKGROUND)
-	fprintf(STDERR," bg");
+	fprintf(STDOUT," bg");
     if (dl->mask)
-        fprintf(STDERR," %dx%d+%d+%d", 
+        fprintf(STDOUT," %dx%d+%d+%d", 
                 dl->mask->xmax - dl->mask->xmin +1, 
                 dl->mask->ymax - dl->mask->ymin +1, 
                 dl->mask->xmin, 
                 dl->mask->ymin );
     if (dl->color != gx_no_color_index)
-        fprintf(STDERR," purecolor=%06x", (uint)(dl->color));
+        fprintf(STDOUT," purecolor=%06x", (uint)(dl->color));
     if (dl->flags & DLIST_HASCOLOR)
-        fprintf(STDERR," hascolor");
+        fprintf(STDOUT," hascolor");
     else if (dl->flags & DLIST_HASGRAY)
-        fprintf(STDERR," hasgray");
+        fprintf(STDOUT," hasgray");
     if (dl->flags & DLIST_INPURE)
-        fprintf(STDERR," inpure");
+        fprintf(STDOUT," inpure");
     if (dl->flags & DLIST_PATH)
-        fprintf(STDERR," path");
+        fprintf(STDOUT," path");
     if (dl->flags & DLIST_PATH_FILL)
-        fprintf(STDERR," fill");
+        fprintf(STDOUT," fill");
     if (dl->flags & DLIST_TEXT)
-        fprintf(STDERR," text");
+        fprintf(STDOUT," text");
     if (dl->perimeter)
-	fprintf(STDERR," peri=%d", dl->perimeter);
+	fprintf(STDOUT," peri=%d", dl->perimeter);
     if (dl->area)
-	fprintf(STDERR," area=%d", dl->area);
+	fprintf(STDOUT," area=%d", dl->area);
     if (dl->palcolor)
-	fprintf(STDERR," palcolor=%d", dl->palcolor);
+	fprintf(STDOUT," palcolor=%d", dl->palcolor);
     if (dl->chromepos)
-	fprintf(STDERR," haschrome");
-    fprintf(STDERR,"\n");
+	fprintf(STDOUT," haschrome");
+    fprintf(STDOUT,"\n");
 }
 #endif
 
@@ -3170,19 +3164,6 @@ drawlist_play(drawlist_head *head, uint flags,
    produces the following comment in the sep file:
         # L <w>x<h>+<x>+<y> (uri)
    It also converts uri starting with page:// into uri starting with #.
-
-   -- TXT pdfmark sequences can be generated by modified
-   versions of the text operators. These should call
-        [ /V [ x1 y1 x2 y2] /T (text) /TXT pdfmark
-   just after calling the actual text drawing function.
-   The coordinates <x1>,<y1>,<x2>,<y2> indicate the
-   position of the current point before and after
-   drawing the text.  These marks are translated into
-   the following comment in the sep file:
-        # T <x>:<y> <dx>:<dy> <w>x<h>+<x>+<y> (<text>)
-   This comment indicates the initial current point position, 
-   the current point displacement, the bounding rectangle
-   and the utf8 encoded text.
 */
 
 
@@ -3363,50 +3344,11 @@ pdfmark_do_lnk(p2mem *mem, gs_param_string_array *pma, lnkmark **pmark)
     return code;
 }
 
-/* Internal -- process TXT mark */
-private int
-pdfmark_do_txt(p2mem *mem, gs_param_string_array *pma, txtmark **ptxt)
-{
-    txtmark *mark;
-    gs_matrix ctm;
-    gs_rect rect, urect;
-    int code = 0;
-    /* Allocate mark */
-    code = gs_error_VMerror; 
-    if (! (mark = p2mem_alloc(mem, sizeof(txtmark)))) goto xit;
-    memset(mark, 0, sizeof(txtmark));
-    /* Search Rect */
-    if (((code = pdfmark_get_ctm(mem, pma, &ctm)) < 0) ||
-        ((code = pdfmark_get_rect(mem, pma, "/V", &urect)) < 0) )
-        goto xit;
-    gs_point_transform(urect.p.x, urect.p.y, &ctm, &rect.p);
-    gs_point_transform(urect.q.x, urect.q.y, &ctm, &rect.q);
-    mark->x = (int)floor(rect.p.x + 0.5);
-    mark->y = (int)floor(rect.p.y + 0.5);
-    mark->w = (int)floor(rect.q.x + 0.5) - mark->x;
-    mark->h = (int)floor(rect.q.y + 0.5) - mark->y;
-    /* Obtain text */
-    code = gs_error_rangecheck;
-    if ((code = pdfmark_find(mem, pma, "/T", &mark->arg)) < 0)
-        goto xit;
-    if (! mark->arg)
-        goto xit;
-    *ptxt = mark;
-    mark = 0;
-    code = 0;
- xit:
-    p2mem_free(mem, mark);
-    return code;
-}
-
 
 
 /* ======================================
        D J V U    D E V I C E
    ====================================== */
-
-/* Forward declarations */
-typedef struct gx_device_djvu_s gx_device_djvu;
 
 /* Declaring the process procedure. */
 #define djvu_proc_process(process) int process(gx_device_djvu *dev)
@@ -3425,6 +3367,7 @@ struct gx_device_djvu_s {
     char   outputfilename[prn_fname_sizeof];
     bool   reopenperpage;
     bool   autohires;
+    bool   extracttext;
     bool   quiet;
     /* Device data */
     p2mem          *pmem;          /* stable memory */
@@ -3531,7 +3474,7 @@ djvu_flush_current(gx_device_djvu *cdev)
             dl->mask = mask;
 #ifdef DEBUG
             if (cdev->curchrome && gs_debug_c(DEBUG_CHAR_CHROME))
-                drawlist_print(dl);
+                drawlist_print(dl, cdev);
 #endif
         }
     }
@@ -3699,6 +3642,7 @@ djvu_get_params(gx_device * dev, gs_param_list * plist)
     GET(param_write_long, "MaxBitmap", &cdev->maxbitmap);
     GET(param_write_bool, "ReopenPerPage", &cdev->reopenperpage);
     GET(param_write_bool, "AutoHires", &cdev->autohires);
+    GET(param_write_bool, "ExtractText", &cdev->extracttext);
     GET(param_write_bool, "QUIET", &cdev->quiet);
     if (code >= 0) code=param_write_null(plist, "pdfmark");
 #undef GET
@@ -3734,11 +3678,6 @@ djvu_pdfmark(gx_device_djvu *cdev, gs_param_string_array *pma)
         }
         p2mem_free(cdev->pmem, subtype);
         p2mem_free(cdev->pmem, action);
-    } else if (size>=1 && pdfmark_eq(&pma->data[size-1], "TXT")) {
-        drawlist *dl = cdev->head.last;
-        if ( !cdev->curmask && dl && dl->mask && 
-             !dl->text && (dl->flags & DLIST_TEXT) ) 
-            code = pdfmark_do_txt(cdev->pmem, pma, &dl->text);
     }
     return code;
 }
@@ -3773,6 +3712,7 @@ djvu_put_params(gx_device * dev, gs_param_list * plist)
     long mbm = cdev->maxbitmap;
     bool rpp = cdev->reopenperpage;
     bool ahi = cdev->autohires;
+    bool etx = cdev->extracttext;
     bool quiet = cdev->quiet;
     /* Handle pseudo-parameter pdfmark */
     gs_param_string_array pma;
@@ -3799,6 +3739,7 @@ djvu_put_params(gx_device * dev, gs_param_list * plist)
     PUT(param_read_long, "MaxBitmap", &mbm, (mbm<=1000000000));
     PUT(param_read_bool, "ReopenPerPage", &rpp, true);
     PUT(param_read_bool, "AutoHires", &ahi, true);
+    PUT(param_read_bool, "ExtractText", &etx, true);
     PUT(param_read_bool, "QUIET", &quiet, true);
 #undef PUT
     /* Terminate validation */
@@ -3817,6 +3758,7 @@ djvu_put_params(gx_device * dev, gs_param_list * plist)
     cdev->maxbitmap = max(1000000, mbm);
     cdev->reopenperpage = rpp;
     cdev->autohires = ahi;
+    cdev->extracttext = etx;
     cdev->quiet = quiet;
     /* Install ``OutputFile'' */
     if (ofs.data) {
@@ -4091,7 +4033,168 @@ typedef struct fat_text_enum_procs_s {
     void (*origfree)(gs_memory_t*, void*, client_name_t);
     struct fat_text_enum_procs_s *myself;
     p2mem *pmem;
+    gs_state *pgs;
+    gs_int_point lastpoint;
+    bool lastpointvalid;
 } fat_text_enum_procs_t;
+
+
+/* Helper: Convert unicode to utf8 */
+private int
+unicode_to_utf8(int unicode, byte *utf)
+{
+    int i = 0;
+    if (unicode < 0) {
+        utf[0] = 0;
+    } else if (unicode <= 0x7f) {
+        utf[i++] = unicode;
+    } else if (unicode <= 0x7ff) {
+        utf[i++] = 0xc0 + ((unicode >> 6) & 0x1f);
+        utf[i++] = 0x80 + (unicode & 0x3f);
+    } else if (unicode <= 0xffff) {
+        utf[i++] = 0xe0 + ((unicode >> 12) & 0x0f);
+        utf[i++] = 0x80 + ((unicode >> 6) & 0x3f);
+        utf[i++] = 0x80 + (unicode & 0x3f);
+    } else if (unicode <= 0x1fffff) {
+        utf[i++] = 0xf0 + ((unicode >> 18) & 0x07);
+        utf[i++] = 0x80 + ((unicode >> 12) & 0x3f);
+        utf[i++] = 0x80 + ((unicode >> 6) & 0x3f);
+        utf[i++] = 0x80 + (unicode & 0x3f);
+    } else if (unicode <= 0x3ffffff) {
+        utf[i++] = 0xf8 + ((unicode >> 24) & 0x03);
+        utf[i++] = 0x80 + ((unicode >> 18) & 0x3f);
+        utf[i++] = 0x80 + ((unicode >> 12) & 0x3f);
+        utf[i++] = 0x80 + ((unicode >> 6) & 0x3f);
+        utf[i++] = 0x80 + (unicode & 0x3f);
+    } else {
+        utf[i++] = 0xfc + ((unicode >> 30) & 0x01);
+        utf[i++] = 0x80 + ((unicode >> 24) & 0x3f);
+        utf[i++] = 0x80 + ((unicode >> 18) & 0x3f);
+        utf[i++] = 0x80 + ((unicode >> 12) & 0x3f);
+        utf[i++] = 0x80 + ((unicode >> 6) & 0x3f);
+        utf[i++] = 0x80 + (unicode & 0x3f);
+    }
+    utf[i] = 0;
+    return i;
+}
+
+
+/* Helper: make postscript string */
+private char *
+make_ps_string(p2mem *mem, const byte *p, uint l)
+{
+    int i;
+    int n = l+3;
+    char *str, *s;
+    static const char odigit[] = "01234567";
+    for (i=0; i<l; i++)
+        if (p[i]=='(' || p[i]==')' || p[i]=='\\')
+            n += 1;
+        else if (! (p[i]>=0x20 && p[i]<0x7f))
+            n += 3;
+    if (! (str = s = p2mem_alloc(mem, n)))
+        return 0;
+    *s++ = '(';
+    for (i=0; i<l; i++) {
+        byte b = p[i];
+        if (b=='(' || b==')' || b=='\\') {
+            *s++ = '\\';
+            *s++ = b;
+        } else if ( b>=0x20 && b<0x7f ) {
+            *s++ = b;
+        } else {
+            *s++ = '\\';
+            *s++ = odigit[(b>>6)&0x3];            
+            *s++ = odigit[(b>>3)&0x7];
+            *s++ = odigit[(b>>0)&0x7];
+        }
+    }
+    *s++ = ')';
+    *s++ = 0;
+    return str;
+}
+
+
+/* Utility: finds the current point in image coordinates */
+private bool
+djvu_currentpoint(gs_state *pgs, gs_int_point *ipoint)
+{
+    gs_matrix ctm;
+    gs_point point, tpoint;
+    if (gs_currentpoint(pgs, &point) >= 0 &&
+        gs_currentmatrix(pgs, &ctm) >= 0) {
+        gs_point_transform(point.x, point.y, &ctm, &tpoint);
+        ipoint->x = (int)floor(tpoint.x + 0.5);
+        ipoint->y = (int)floor(tpoint.y + 0.5);
+        return true;
+    }
+    return false;
+}
+
+
+/* Utility: finds what character we are displaying */
+private void
+djvu_text_extract(gs_text_enum_t *pte)
+{
+    fat_text_enum_procs_t *fat = (fat_text_enum_procs_t *)pte->procs;
+    gx_device_djvu * const cdev = (gx_device_djvu *)pte->dev;
+    gs_font *font = gs_text_current_font(pte);
+    gs_glyph glyph = gs_text_current_glyph(pte);
+    int unicode = GS_NO_CHAR;
+    gs_int_point lastpoint = fat->lastpoint;
+    bool lastpointvalid = fat->lastpointvalid;
+    gs_int_point point;
+    bool pointvalid = false;
+    if (font && glyph) 
+        unicode = font->procs.decode_glyph(font, glyph);
+    pointvalid = djvu_currentpoint(fat->pgs, &point);
+    if (unicode != GS_NO_CHAR && lastpointvalid && pointvalid) {
+        txtmark *mark = 0;
+        char *arg = 0;
+        byte buffer[8];
+        int fcode;
+        int len;
+        /* flush current drawing */
+        if (cdev->curmask) {
+            gx_color_index color;
+            cdev->curflags &= ~DLIST_RECURSIVE;
+            fcode = djvu_flush_current(cdev);
+            len = unicode_to_utf8(unicode, buffer);
+            if (len > 0) {
+                drawlist *dl = cdev->head.last;
+                mark = p2mem_alloc(cdev->pmem, sizeof(txtmark));
+                arg = make_ps_string(cdev->pmem, buffer, len);
+                if (fcode >= 0 && dl && dl->mask && !dl->text && mark && arg) {
+                    mark->x = lastpoint.x;
+                    mark->y = lastpoint.y;
+                    mark->w = point.x - mark->x;
+                    mark->h = point.y - mark->y;
+                    mark->arg = arg;
+                    dl->text = mark;
+                    mark = 0;
+                    arg = 0;
+                }
+                if (mark)
+                    p2mem_free(cdev->pmem, mark);
+                if (arg)
+                    p2mem_free(cdev->pmem, arg);            
+            }
+            /* prepare new context */
+            color = gx_no_color_index;
+            if (  pte->pdcolor
+                  && gx_dc_writes_pure(pte->pdcolor, pte->pis->log_op)
+                  && pte->pis->alpha==gx_max_color_value )
+                color = gx_dc_pure_color(pte->pdcolor);
+            djvu_check_current(cdev, color);
+            cdev->curflags |= DLIST_TEXT | DLIST_RECURSIVE;
+        }
+    }
+    if (pointvalid) {
+        fat->lastpoint = point;
+        fat->lastpointvalid = pointvalid;
+    }
+}
+
 
 /* GS finalization callback */
 private void
@@ -4112,14 +4215,28 @@ djvu_text_free(gs_memory_t * memory, void *vpte, client_name_t cname)
 private int
 djvu_text_process(gs_text_enum_t * pte)
 {
-    const fat_text_enum_procs_t *fat = (const fat_text_enum_procs_t *)pte->procs;
+    fat_text_enum_procs_t *fat = (fat_text_enum_procs_t *)pte->procs;
     gx_device_djvu * const cdev = (gx_device_djvu *)pte->dev;
     int code;
+    int oper;
     /* delegate */
     ASSERT(fat == fat->myself);
-    code = fat->origprocs->process(pte);
+    if (cdev->extracttext)
+        if (djvu_currentpoint(fat->pgs, &fat->lastpoint))
+            fat->lastpointvalid = true;
+    oper = pte->text.operation;
+    if (cdev->extracttext)
+        pte->text.operation |= TEXT_INTERVENE;
+    do {
+        code = fat->origprocs->process(pte);
+        if (code == TEXT_PROCESS_INTERVENE || code == 0)
+            if (cdev->extracttext)
+                djvu_text_extract(pte);
+    } while ((code==TEXT_PROCESS_INTERVENE) && !(oper & TEXT_INTERVENE));
+    if (cdev->extracttext && !(oper & TEXT_INTERVENE))
+        pte->text.operation &= ~TEXT_INTERVENE;
+    /* is text operation finished */
     if (code <= 0) {
-        /* text operation is finished */
         int fcode;
         cdev->curflags &= ~DLIST_RECURSIVE;
         fcode = djvu_flush_current(cdev);
@@ -4163,6 +4280,8 @@ djvu_text_begin(gx_device *dev, gs_imager_state * pis,
     fat->procs.process = djvu_text_process;
     fat->myself = fat;
     fat->pmem = cdev->pmem;
+    fat->pgs = (gs_state*)pis;
+    fat->lastpointvalid = false;
     /* Flush current object */
     code = djvu_flush_current(cdev);
     if (code < 0) return code;
@@ -4318,7 +4437,7 @@ lowcolor_separate(gx_device_djvu *cdev, drawlist *dl,
     ncolors = colorhash->nelems;
 #ifdef DEBUG
     if (gs_debug_c(DEBUG_CHAR_LOCOLOR))
-        fprintf(STDERR,"LC: perim=%d hardperim=%d ncolors=%d\n", 
+        fprintf(STDOUT,"LC: perim=%d hardperim=%d ncolors=%d\n", 
                 perim, hardperim, ncolors);
 #endif
     while (perim >= 0x1000000) { perim >>= 1; hardperim >>= 1; }
@@ -4390,8 +4509,8 @@ lowcolor_process_one(gx_device_djvu *cdev, drawlist *dl)
 #ifdef DEBUG
     /* Number of colors is small enough */
     if (gs_debug_c(DEBUG_CHAR_LOCOLOR)) {
-        fprintf(STDERR, "LC: examining");
-        drawlist_print(dl);
+        fprintf(STDOUT, "LC: examining");
+        drawlist_print(dl, cdev);
     }
 #endif
     /* Create color histogram */
@@ -4419,8 +4538,8 @@ lowcolor_process_one(gx_device_djvu *cdev, drawlist *dl)
     dl->chromepos = 0;
 #ifdef DEBUG
     if (gs_debug_c(DEBUG_CHAR_LOCOLOR)) {
-        fprintf(STDERR,"LC: becomes");
-        drawlist_print(dl);
+        fprintf(STDOUT,"LC: becomes");
+        drawlist_print(dl, cdev);
     }
 #endif      
     /* Insert all remaining components */
@@ -4434,8 +4553,8 @@ lowcolor_process_one(gx_device_djvu *cdev, drawlist *dl)
         cdmap[i]->map = 0;
 #ifdef DEBUG
         if (gs_debug_c(DEBUG_CHAR_LOCOLOR)) {
-            fprintf(STDERR,"LC: plus");
-            drawlist_print(newdl);
+            fprintf(STDOUT,"LC: plus");
+            drawlist_print(newdl, cdev);
         }
 #endif
     }
@@ -4581,8 +4700,8 @@ identify_bg_candidates(gx_device_djvu *cdev)
         }
 #ifdef DEBUG
         if (gs_debug_c(DEBUG_CHAR_DLIST) && dl) {
-            fprintf(STDERR,"bgcan ");
-            drawlist_print(dl);
+            fprintf(STDOUT,"bgcan ");
+            drawlist_print(dl, cdev);
         }
 #endif
         /* Link */
@@ -4752,7 +4871,7 @@ classify_drawlist(p2mem *mem, gx_device_djvu *cdev,
         if (code < 0) return code;
 #ifdef DEBUG
         if (debug)
-            fprintf(STDERR,"---- %3d * %6d ? %6d\n", 
+            fprintf(STDOUT,"---- %3d * %6d ? %6d\n", 
                     dist, bg_perim, clipped_perim);
 #endif        
         /* Renormalize in order to avoid integer overflows */
@@ -4769,7 +4888,7 @@ classify_drawlist(p2mem *mem, gx_device_djvu *cdev,
         /* --- Foreground/background decision has now been made --- */
     cleanup:
 #ifdef DEBUG
-	if (debug) drawlist_print(dl);
+	if (debug) drawlist_print(dl, cdev);
 #endif
 	/* Add element to the proper mask/flags */
 	if (dl->flags & DLIST_FOREGROUND) {
@@ -4875,7 +4994,7 @@ process_drawlist(gx_device_djvu *cdev,
     uint bgflags;
 #ifdef DEBUG
     if (gs_debug_c(DEBUG_CHAR_P2MEM)) 
-        p2mem_diag(cdev->pmem);
+        p2mem_diag(cdev->pmem, cdev);
 #endif
     /* Break potential lowcolor images */
     code = lowcolor_process(cdev);
@@ -4888,7 +5007,7 @@ process_drawlist(gx_device_djvu *cdev,
     if (code < 0) goto xit;
 #ifdef DEBUG
     if (gs_debug_c(DEBUG_CHAR_P2MEM)) 
-        p2mem_diag(cdev->pmem);
+        p2mem_diag(cdev->pmem, cdev);
 #endif
     /* Terminate */
     if (fgflagsout)
@@ -4950,7 +5069,7 @@ djvumask_process(gx_device_djvu *cdev)
     runmap_free(fgmap);
 #ifdef DEBUG
     if (gs_debug_c(DEBUG_CHAR_P2MEM))
-        p2mem_diag(cdev->pmem);
+        p2mem_diag(cdev->pmem, cdev);
 #endif
     return 0;
 }
@@ -4999,7 +5118,7 @@ quantize_fg_colors(gx_device_djvu *cdev)
         goto xit;
 #ifdef DEBUG
     if (gs_debug_c(DEBUG_CHAR_COLOR))
-	fprintf(STDERR,"Found %d colors, reduced to %d colors\n",
+	fprintf(STDOUT,"Found %d colors, reduced to %d colors\n",
 		colorhash->nelems, cdev->fgpalettesize);
 #endif
     /* Fill palcolor in foreground drawlist elements */
@@ -5101,7 +5220,7 @@ save_background_no_subsampling(gx_device_djvu *cdev)
     for(bandy=0; bandy < cdev->height; bandy += bandh) {
 #ifdef DEBUG
         if (gs_debug_c(DEBUG_CHAR_BG))
-            fprintf(STDERR,"band %d .. %d\n",bandy, bandy+bandh);
+            fprintf(STDOUT,"band %d .. %d\n",bandy, bandy+bandh);
 #endif
         bandh = min(bandh, cdev->height - bandy);
         memset(band, 0xff, bandsize);
@@ -5217,7 +5336,7 @@ save_background(gx_device_djvu *cdev, runmap *mask, int subsample)
         int ry;
 #ifdef DEBUG
         if (gs_debug_c(DEBUG_CHAR_BG))
-            fprintf(STDERR,"band %d .. %d\n", bandy, bandy+bandh);
+            fprintf(STDOUT,"band %d .. %d\n", bandy, bandy+bandh);
 #endif
         /* Render band */
         bandh = min(bandh, cdev->height - bandy);
@@ -5301,7 +5420,7 @@ djvusep_process(gx_device_djvu *cdev)
     if (code < 0) return code;
 #ifdef DEBUG
     if (gs_debug_c(DEBUG_CHAR_P2MEM))
-        p2mem_diag(cdev->pmem);
+        p2mem_diag(cdev->pmem, cdev);
 #endif
     /* Save separation */
     if (cdev->outputfile) {
@@ -5324,8 +5443,8 @@ djvusep_process(gx_device_djvu *cdev)
                          mark->w, mark->h, mark->x, mark->y, 
                          mark->uri );
             for (dl=cdev->head.first; dl; dl=dl->next) {
-		runmap *mask;
-		txtmark *mark;
+		runmap *mask = 0;
+		txtmark *mark = 0;
                 if ((dl->flags & DLIST_TEXT) && 
                     (mask = dl->mask) &&  (mark = dl->text) )
                     fprintf( cdev->outputfile, 
@@ -5352,7 +5471,7 @@ djvusep_process(gx_device_djvu *cdev)
     runmap_free(fgmap);
 #ifdef DEBUG
     if (gs_debug_c(DEBUG_CHAR_P2MEM))
-        p2mem_diag(cdev->pmem);
+        p2mem_diag(cdev->pmem, cdev);
 #endif
     return 0;
 }
@@ -5360,219 +5479,5 @@ djvusep_process(gx_device_djvu *cdev)
 
 
 /* ======================================
-         T H E   E N D   (almost)
+         T H E   E N D 
    ====================================== */
-
-#ifndef NEED_DJVUOPS
-# define NEED_DJVUOPS 1
-#endif
-
-/* ======================================
-       D J V U    O P E R A T O R S
-   --------------------------------------
-     Additional operators for ps2utf8
-   ====================================== */
-
-#include "ghost.h"
-#include "oper.h"
-#include "estack.h"
-#include "igstate.h"
-#include "gscoord.h"
-
-#if NEED_DJVUOPS
-
-#include "ichar.h"
-#include "iutil.h"
-#include "store.h"
-
-/* - .cshowglyph <glyph|cid|code> 
-   Return the current glyph in a cshow procedure.
-   Should really be in zcfont.c
-*/
-private int
-zcshowglyph(i_ctx_t *i_ctx_p)
-{
-    gs_glyph glyph;
-    os_ptr op = osp;
-    gs_text_enum_t *osenum = op_show_find(i_ctx_p);
-    /* Check that we are the procedure of a cshow.
-       Same test as in zchar.c:op_show_finish_setup() */
-    if (osenum &&
-	SHOW_IS_ALL_OF(osenum,
-		       TEXT_FROM_STRING | TEXT_DO_NONE | TEXT_INTERVENE) ) {
-        push(1);
-        glyph = gs_text_current_glyph(osenum);
-        if (glyph != gs_no_glyph) {
-#ifdef gs_memory_default
-            glyph_ref(glyph, op);
-#else
-            glyph_ref(imemory, glyph, op);
-#endif
-        } else
-            make_int(op, gs_text_current_char(osenum));
-        return 0;
-    }
-    return_error(e_undefinedresult);        
-}
-
-/* - .cshowchar <charcode>
-   Return the current char code in a cshow procedure.
-   Should really be in zcfont.c
-*/
-private int
-zcshowchar(i_ctx_t *i_ctx_p)
-{
-    os_ptr op = osp;
-    gs_text_enum_t *osenum = op_show_find(i_ctx_p);
-    /* Check that we are the procedure of a cshow.
-       Same test as in zchar.c:op_show_finish_setup() */
-    if (osenum &&
-	SHOW_IS_ALL_OF(osenum,
-		       TEXT_FROM_STRING | TEXT_DO_NONE | TEXT_INTERVENE) ) {
-        push(1);
-        make_int(op, gs_text_current_char(osenum));
-        return 0;
-    }
-    return_error(e_undefinedresult);        
-}
-
-/* - .cshownextchar <charcode>
-   Return the next char code in a cshow procedure.
-   Should really be in zcfont.c
-*/
-private int
-zcshownextchar(i_ctx_t *i_ctx_p)
-{
-    os_ptr op = osp;
-    gs_text_enum_t *osenum = op_show_find(i_ctx_p);
-    /* Check that we are the procedure of a cshow.
-       Same test as in zchar.c:op_show_finish_setup() */
-    if (osenum &&
-	SHOW_IS_ALL_OF(osenum,
-		       TEXT_FROM_STRING | TEXT_DO_NONE | TEXT_INTERVENE) ) {
-        push(1);
-        make_int(op, gs_text_next_char(osenum));
-        return 0;
-    }
-    return_error(e_undefinedresult);        
-}
-#endif
-
-/* Helper for ztxtmark */
-private char *
-make_ps_string(p2mem *mem, const byte *p, uint l)
-{
-    int i;
-    int n = l+3;
-    char *str, *s;
-    static const char odigit[] = "01234567";
-    for (i=0; i<l; i++)
-        if (p[i]=='(' || p[i]==')' || p[i]=='\\')
-            n += 1;
-        else if (! (p[i]>=0x20 && p[i]<0x7f))
-            n += 3;
-    if (! (str = s = p2mem_alloc(mem, n)))
-        return 0;
-    *s++ = '(';
-    for (i=0; i<l; i++) {
-        byte b = p[i];
-        if (b=='(' || b==')' || b=='\\') {
-            *s++ = '\\';
-            *s++ = b;
-        } else if ( b>=0x20 && b<0x7f ) {
-            *s++ = b;
-        } else {
-            *s++ = '\\';
-            *s++ = odigit[(b>>6)&0x3];            
-            *s++ = odigit[(b>>3)&0x7];
-            *s++ = odigit[(b>>0)&0x7];
-        }
-    }
-    *s++ = ')';
-    *s++ = 0;
-    return str;
-}
-
-/* - <utf8str> <x0> <y0> <x1> <y1> .djvumark -
-   This function must be called just after calling
-   the actual text drawing function.
-   The coordinates <x1>,<y1>,<x2>,<y2> indicate the
-   position of the current point before and after
-   drawing the text.  These marks are translated into
-   the following comment in the sep file:
-        # T <x>:<y> <dx>:<dy> <w>x<h>+<x>+<y> (<text>)
-   This comment indicates the initial current point position, 
-   the current point displacement, the bounding rectangle
-   and the utf8 encoded text.
-*/
-private int
-zdjvutextmark(i_ctx_t *i_ctx_p)
-{
-    os_ptr op = osp;
-    gx_device *dev;
-    gx_device_djvu *cdev;
-    double xy[4];
-    const byte *utf8;
-    uint utf8len;
-    gs_matrix ctm;
-    gs_rect rect;
-    txtmark *mark = 0;
-    drawlist *dl;
-    int code;
-    /* Check argument types */
-    check_op(5);
-    if ( (code = num_params(op, 4, xy)) < 0 ||
-#ifdef gs_memory_default
-         (code = obj_string_data(op - 4, &utf8, &utf8len)) < 0 
-#else
-         (code = obj_string_data(imemory, op - 4, &utf8, &utf8len)) < 0 
-#endif
-         )
-        return code;
-    /* Check that current device is djvusep */
-    dev = gs_currentdevice(igs);
-    if (dev->procs.get_params != djvu_get_params)
-        goto xit;
-    cdev = (gx_device_djvu*)dev;
-    if (cdev->process != djvusep_process)
-        return_error(e_rangecheck);     
-    /* Check drawlist */
-    dl = cdev->head.last;
-    if ( !cdev->curmask && dl && dl->mask && 
-         !dl->text && (dl->flags & DLIST_TEXT) ) {
-        /* Prepare mark structure */
-        if (! (mark = p2mem_alloc(cdev->pmem, sizeof(txtmark))))
-            return_error(gs_error_VMerror);
-        if ((code = gs_currentmatrix(igs, &ctm)) < 0)
-            return code;
-        gs_point_transform(xy[0], xy[1], &ctm, &rect.p);
-        gs_point_transform(xy[2], xy[3], &ctm, &rect.q);
-        mark->x = (int)floor(rect.p.x + 0.5);
-        mark->y = (int)floor(rect.p.y + 0.5);
-        mark->w = (int)floor(rect.q.x + 0.5) - mark->x;
-        mark->h = (int)floor(rect.q.y + 0.5) - mark->y;
-        if (! (mark->arg = make_ps_string(cdev->pmem, utf8, utf8len))) {
-            p2mem_free(cdev->pmem, mark);
-            return_error(gs_error_VMerror);
-        }
-        /* And record it */
-        dl->text = mark;
-    }
-    /* Pop arguments and return */
- xit:
-    pop(5);
-    return 0;
-}
-
-/* Operator declaration */
-const op_def gdevdjvu_op_defs[] =
-{
-#if NEED_DJVUOPS
-    {"0.cshowglyph", zcshowglyph},
-    {"0.cshowchar", zcshowchar},
-    {"0.cshownextchar", zcshownextchar},
-#endif
-    {"5.djvutextmark", zdjvutextmark},
-    op_def_end(0)
-};
-
