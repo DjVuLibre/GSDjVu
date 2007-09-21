@@ -4,7 +4,7 @@
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
    -- Copyright (C) 2002-2005 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.6 2007-09-20 17:16:43 leonb Exp $
+   $Id: gdevdjvu.c,v 1.7 2007-09-21 03:08:05 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
@@ -4160,11 +4160,11 @@ djvu_text_extract(gs_text_enum_t *pte)
             cdev->curflags &= ~DLIST_RECURSIVE;
             fcode = djvu_flush_current(cdev);
             len = unicode_to_utf8(unicode, buffer);
-            if (len > 0) {
+            if (len > 0 && fcode >= 0) {
                 drawlist *dl = cdev->head.last;
                 mark = p2mem_alloc(cdev->pmem, sizeof(txtmark));
                 arg = make_ps_string(cdev->pmem, buffer, len);
-                if (fcode >= 0 && dl && dl->mask && !dl->text && mark && arg) {
+                if (dl && dl->mask && !dl->text && mark && arg) {
                     mark->x = lastpoint.x;
                     mark->y = lastpoint.y;
                     mark->w = point.x - mark->x;
@@ -4229,8 +4229,8 @@ djvu_text_process(gs_text_enum_t * pte)
         pte->text.operation |= TEXT_INTERVENE;
     do {
         code = fat->origprocs->process(pte);
-        if (code == TEXT_PROCESS_INTERVENE || code == 0)
-            if (cdev->extracttext)
+        if (cdev->extracttext)
+            if (code == TEXT_PROCESS_INTERVENE || code == 0)
                 djvu_text_extract(pte);
     } while ((code==TEXT_PROCESS_INTERVENE) && !(oper & TEXT_INTERVENE));
     if (cdev->extracttext && !(oper & TEXT_INTERVENE))
