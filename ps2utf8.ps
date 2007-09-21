@@ -29,19 +29,31 @@ systemdict wcheck not {
 
 % Set global memory. 
 currentglobal /setglobal load true setglobal
+
 % Define dictionary for ps2utf8 code
 systemdict begin
 /ProvideUnicode true def
 /ExtractText true def
 /.ps2utf8 10 dict def
+end
+
+% Make sure ProvideUnicode works (hack copied from pdf_wr.ps)
+systemdict /.setupUnicodeDecoder known {
+  /Unicode /Decoding resourcestatus {
+     pop pop /Unicode /Decoding findresource
+     .setupUnicodeDecoder
+  } if
+} if
+
 % Restore allocation mode
 exec
 
 % Pass ExtractText to djvusep device.
-DEVICE (djvusep) eq {
+systemdict /DEVICE .knownget { (djvusep) eq } { true } ifelse {
   << /ExtractText true >> setpagedevice
 } {
   (ps2utf8: has been made obsolete by -dExtractText in gdevdjvu.\n) print
   (ps2utf8: this is only a placeholder.\n) print
   quit 
 } ifelse
+
