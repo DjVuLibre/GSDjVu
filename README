@@ -185,6 +185,9 @@ comments in the driver source code "gdevdjvu.c":
 			      generate a full resolution background layer
 			      when the foreground is empty.
 
+   * "-dExtractText"          This option causes the generation of sep file 
+                              comments describing the textual information.
+
    * "-dReopenPerPage"        Specifies that the output file must be reopened
                               for each page.  Default is to reopen if the 
 			      filename contains a "%d" specification for 
