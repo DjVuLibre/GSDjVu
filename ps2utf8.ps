@@ -49,7 +49,7 @@ systemdict /.setupUnicodeDecoder known {
 exec
 
 % Pass ExtractText to djvusep device.
-systemdict /DEVICE .knownget { (djvusep) eq } { true } ifelse {
+currentdevice .devicename /djvusep eq {
   << /ExtractText true >> setpagedevice
 } {
   (ps2utf8: has been made obsolete by -dExtractText in gdevdjvu.\n) print
