@@ -4,7 +4,7 @@
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
    -- Copyright (C) 2002-2005 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.8 2007-09-25 18:22:31 leonb Exp $
+   $Id: gdevdjvu.c,v 1.9 2007-09-25 18:27:14 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
@@ -4041,7 +4041,7 @@ typedef struct fat_text_enum_procs_s {
 
 /* Helper: Convert unicode to utf8 */
 private int
-unicode_to_utf8(int unicode, byte *utf)
+unicode_to_utf8(gs_char unicode, byte *utf)
 {
     int i = 0;
     if (unicode < 0) {
@@ -4140,14 +4140,13 @@ djvu_text_extract(gs_text_enum_t *pte)
     gx_device_djvu * const cdev = (gx_device_djvu *)pte->dev;
     gs_font *font = gs_text_current_font(pte);
     gs_glyph glyph = gs_text_current_glyph(pte);
-    int unicode = GS_NO_CHAR;
+    gs_char unicode = GS_NO_CHAR;
     gs_int_point lastpoint = fat->lastpoint;
     bool lastpointvalid = fat->lastpointvalid;
     gs_int_point point;
-    bool pointvalid = false;
+    bool pointvalid = djvu_currentpoint(fat->pgs, &point);
     if (font && glyph) 
         unicode = font->procs.decode_glyph(font, glyph);
-    pointvalid = djvu_currentpoint(fat->pgs, &point);
     if (unicode != GS_NO_CHAR && lastpointvalid && pointvalid) {
         txtmark *mark = 0;
         char *arg = 0;
@@ -4201,7 +4200,7 @@ private void
 djvu_text_free(gs_memory_t * memory, void *vpte, client_name_t cname)
 {
     gs_text_enum_t *pte = (gs_text_enum_t *)vpte;
-    const fat_text_enum_procs_t *fat = (const fat_text_enum_procs_t *)pte->procs;
+    fat_text_enum_procs_t *fat = (fat_text_enum_procs_t *)pte->procs;
     gx_device_djvu * const cdev = (gx_device_djvu *)pte->dev;
     if (cdev->curmask)
         if (cdev->curflags & DLIST_TEXT)
