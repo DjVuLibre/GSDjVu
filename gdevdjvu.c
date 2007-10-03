@@ -4,20 +4,20 @@
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
    -- Copyright (C) 2002-2005 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.10 2007-09-29 01:57:00 leonb Exp $
+   $Id: gdevdjvu.c,v 1.11 2007-10-03 22:31:58 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
    by AT&T Corp. under the terms of the Common Public Licence. 
    See the files COPYING and COPYING.CPL for more information.
 
-   This file includes contributions authored by Leon Bottou,
+   This file includes further contributions authored by Leon Bottou,
    including (i) the gathering of all gsdjvu code into a single 
    self-contained file, (ii) various bug fixes and compatibility fixes, 
    and (iii) support for text extraction.  These contributions 
    are governed by the Common Public License.
 
-   Alternatively, Leon Bottou also releases his contributions under 
+   Alternatively, Leon Bottou also releases these contributions under 
    the terms of the GNU Public License.  Should AT&T re-release 
    the gsdjvu code under the GNU Public Licence, the present file 
    would become distributable under the terms of the GNU Public License.
