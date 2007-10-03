@@ -3,8 +3,8 @@
    -------------------------------------------------------------------------- 
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
-   -- Copyright (C) 2002-2005 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.11 2007-10-03 22:31:58 leonb Exp $
+   -- Copyright (C) 2002-2007 Leon Bottou.
+   $Id: gdevdjvu.c,v 1.12 2007-10-03 23:38:24 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
