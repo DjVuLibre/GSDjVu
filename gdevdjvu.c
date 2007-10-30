@@ -4,7 +4,7 @@
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
    -- Copyright (C) 2002-2007 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.12 2007-10-03 23:38:24 leonb Exp $
+   $Id: gdevdjvu.c,v 1.13 2007-10-30 04:17:11 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
@@ -3385,13 +3385,11 @@ pdfmark_do_out(p2mem *mem, gs_param_string_array *pma, pdfmark **pmark)
         ((code = pdfmark_find(mem, pma, "/Page", &temp1)) < 0) ||
         ((code = pdfmark_find(mem, pma, "/Title", &temp2)) < 0) )
         goto xit;
-    code = gs_error_rangecheck;
+    code = 2;
     if (temp0 && sscanf(temp0, "%d", &mark->count) != 1) goto xit;
     mark->count = abs(mark->count);
-    if (! temp1) goto xit;
-    if (sscanf(temp1, "%d", &mark->page) != 1) goto xit;
-    code = 2;
-    if (! temp2 || mark->page < 0) goto xit;
+    if (! temp1 || sscanf(temp1, "%d", &mark->page) != 1) goto xit;
+    if (mark->page < 0 || ! temp2) goto xit;
     mark->title = temp2;
     temp2 = 0;
     /* The end */
