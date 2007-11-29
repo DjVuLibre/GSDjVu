@@ -4,7 +4,7 @@
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
    -- Copyright (C) 2002-2007 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.13 2007-10-30 04:17:11 leonb Exp $
+   $Id: gdevdjvu.c,v 1.14 2007-11-29 02:32:27 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
@@ -117,6 +117,10 @@
 #define DEBUG_CHAR_LOCOLOR  0
 #define DEBUG_CHAR_BG       0
 
+/* For ghostscript-8.61 and above */
+#ifndef private
+# define private static
+#endif
 
 
 /* ====================================== 
