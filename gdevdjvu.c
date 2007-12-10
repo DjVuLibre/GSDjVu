@@ -4,7 +4,7 @@
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
    -- Copyright (C) 2002-2007 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.14 2007-11-29 02:32:27 leonb Exp $
+   $Id: gdevdjvu.c,v 1.15 2007-12-10 16:48:32 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
@@ -5519,7 +5519,7 @@ djvusep_process(gx_device_djvu *cdev)
                 if (mark->type == 'L') {
                     struct pdfmark_l_s *m = &mark->u.l;
                     fprintf( cdev->outputfile, 
-                             "# L %dx%d+%d+%d %s\n", 
+                             "# L %dx%d%+d%+d %s\n", 
                              m->w, m->h, m->x, m->y, m->uri );
                 } else if (mark->type == 'B') {
                     struct pdfmark_b_s *m = &mark->u.b;
@@ -5534,7 +5534,7 @@ djvusep_process(gx_device_djvu *cdev)
                 if ((dl->flags & DLIST_TEXT) && 
                     (mask = dl->mask) &&  (mark = dl->text) )
                     fprintf( cdev->outputfile, 
-                             "# T %d:%d %d:%d %dx%d+%d+%d %s\n", 
+                             "# T %d:%d %d:%d %dx%d%+d%+d %s\n", 
                              mark->x, mark->y, mark->w, mark->h,
                              mask->xmax - mask->xmin +1, 
                              mask->ymax - mask->ymin +1, 
