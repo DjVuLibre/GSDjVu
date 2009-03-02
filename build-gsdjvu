@@ -69,7 +69,7 @@ cat <<EOF
 Please enter the path of the directory containing
 the necessary source files:
   ghostscript-8.57.tar.bz2 (or better)
-  ghostscript-fonts-std-8.11.tar.gz
+  [recommended] ghostscript-fonts-std-8.11.tar.gz
   [optional] jpegsrc.v6b.tar.gz 
   [optional] libpng-1.2.6.tar.gz
   [optional] zlib-1.2.1.tar.gz
@@ -118,13 +118,14 @@ checkfile() {
 checkfile "GhostScript" "$gs_src" \
     || exit 10
 checkfile "GhostScript Fonts" "$gs_font_src" \
-    || exit 10
+    || ( echo "  - Trying to use installed ghostscript fonts." ;
+         echo "    Things will break if they are not found at runtime." )
 checkfile "IJG JPEG Library" "$jpeg_src" \
-    || echo " Trying to use system library instead."
+    || echo " - Trying to use system library instead."
 checkfile "LibPNG" "$png_src" \
-    || echo " Trying to use system library instead."
+    || echo " - Trying to use system library instead."
 checkfile "ZLib" "$zlib_src" \
-    || echo " Trying to use system library instead."
+    || echo " - Trying to use system library instead."
 
 echo -n "Is this correct [Y/n] ?"
 read tmp
@@ -179,31 +180,40 @@ if [ ! -d "$gssrcdir" ] ; then
 fi
 
 cd $gssrcdir
-unpack "../$gs_font_src" || exit 10 
-test -n "$jpeg_src" && ( unpack "../$jpeg_src" || exit 10 )
-test -n "$png_src"  && ( unpack "../$png_src"  || exit 10 )
-test -n "$zlib_src" && ( unpack "../$zlib_src" || exit 10 )
+test -n "$gs_font_src" && ( unpack "../$gs_font_src" || exit 10 )
+test -n "$jpeg_src"    && ( unpack "../$jpeg_src" || exit 10 )
+test -n "$png_src"     && ( unpack "../$png_src"  || exit 10 )
+test -n "$zlib_src"    && ( unpack "../$zlib_src" || exit 10 )
 
 
 # --------------------------------------------------
 # Patching ghostscript
+
+if test -r src/contrib.mak ; then
+  base="src"
+elif test -r base/contrib.mak ; then
+  base="base"
+else
+  echo 'Cannot find file "contrib.mak" in ghostscript distribution.'
+  exit 10
+fi
 
 echo "Patching Ghostscript.."
 
 rm -f 2>/dev/null gsdjvu
 cp $gsfiles/gsdjvu gsdjvu
 
-rm -f 2>/dev/null src/gdevdjvu.c
-cp $gsfiles/gdevdjvu.c src/gdevdjvu.c
+rm -f 2>/dev/null $base/gdevdjvu.c
+cp $gsfiles/gdevdjvu.c $base/gdevdjvu.c
 
 rm -f 2>/dev/null lib/ps2utf8.ps
 cp $gsfiles/ps2utf8.ps lib/ps2utf8.ps
 
-test -r src/contrib.mak.gsdjvu && \
-  mv src/contrib.mak.gsdjvu src/contrib.mak
-cp src/contrib.mak src/contrib.mak.gsdjvu
-grep -q djvusep src/contrib.mak || \
-  cat $gsfiles/gsdjvu.mak >> src/contrib.mak
+test -r $base/contrib.mak.gsdjvu && \
+  mv $base/contrib.mak.gsdjvu $base/contrib.mak
+cp $base/contrib.mak $base/contrib.mak.gsdjvu
+grep -q djvusep $base/contrib.mak || \
+  cat $gsfiles/gsdjvu.mak >> $base/contrib.mak
 
 for lib in jpeg libpng zlib ; do
  for libn in $lib-* ; do
@@ -221,7 +231,7 @@ if [ $do_configure = yes ] ; then
     echo "Running 'configure'."
     #echo -n "Press <enter> to start."
     #read tmp
-    if ./configure --without-x --without-ijs --without-gimp-print
+    if ./configure --without-x --without-ijs --without-gimp-print --prefix=/usr
         then
         echo "Done."
     else
@@ -291,7 +301,7 @@ if [ $do_install = "yes" ] ; then
     #read tmp
     
     DESTDIR="${DESTDIR-}"
-    INSTALL="${INSTALL-./src/instcopy}"
+    INSTALL="${INSTALL-./$base/instcopy}"
     MKDIRP="${MKDIRP-mkdir -p}"
     
     gsdir="$builddir/INST/gsdjvu"
