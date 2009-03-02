@@ -41,13 +41,17 @@ including MacOS X and Cygwin.
     - Download the following files into this directory:
         
         ghostscript-8.57.tar.bz2
-        ghostscript-fonts-std-8.11.tar.gz
+        [recommended] ghostscript-fonts-std-8.11.tar.gz 
         [optional] jpegsrc.v6b.tar.gz 
         [optional] libpng-1.2.6.tar.gz
         [optional] zlib-1.2.1.tar.gz
       
       These files can be found under 
         <ftp://mirror.cs.wisc.edu/pub/mirrors/ghost/GPL/gs857/>
+
+      If you do not provide the fonts file, ghostscript 
+      tries to find the fonts in standard places on your system.
+      Of course things will break badly if it does not find them.
 
       If you do not provide any of the last three files,
       jpegsrc, libpng and zlib, the building script will
@@ -60,6 +64,8 @@ including MacOS X and Cygwin.
       The ghostscript versions suggested above were current at
       the time gsdjvu was released. You can try to build gsdjvu 
       using newer versions, but do not take it for granted.
+      
+      Note that file "ghostscript-fonts-std-8.11.tar.gz"
 
 
 2) Run the shell script 'build-gsdjvu'.
