@@ -118,8 +118,8 @@ checkfile() {
 checkfile "GhostScript" "$gs_src" \
     || exit 10
 checkfile "GhostScript Fonts" "$gs_font_src" \
-    || ( echo "  - Trying to use installed ghostscript fonts." ;
-         echo "    Things will break if they are not found at runtime." )
+    || ( echo " - Trying to use installed ghostscript fonts." ;
+         echo "   Things will break if they are not found at runtime." )
 checkfile "IJG JPEG Library" "$jpeg_src" \
     || echo " - Trying to use system library instead."
 checkfile "LibPNG" "$png_src" \
@@ -330,10 +330,12 @@ if [ $do_install = "yes" ] ; then
         for n in `find Resource -type f -print` ; do
             $INSTALL -m 644 $n "$DESTDIR$gsdir/$n"
         done
-        test -r lib/gs_res.ps.gsdjvu || \
+        if test -r lib/gs_res.ps ; then
+          test -r lib/gs_res.ps.gsdjvu || \
             cp lib/gs_res.ps lib/gs_res.ps.gsdjvu
-        sed < lib/gs_res.ps.gsdjvu > lib/gs_res.ps \
-         -e 's:(/\(Resource/[a-zA-Z/]*\)):(\1) findlibfile {pop} {pop &} ifelse:'
+          sed < lib/gs_res.ps.gsdjvu > lib/gs_res.ps \
+            -e 's:(/\(Resource/[a-zA-Z/]*\)):(\1) findlibfile {pop} {pop &} ifelse:'
+        fi
     fi
     
     echo "  Library files"
