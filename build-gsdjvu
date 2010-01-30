@@ -231,7 +231,18 @@ if [ $do_configure = yes ] ; then
     echo "Running 'configure'."
     #echo -n "Press <enter> to start."
     #read tmp
-    if ./configure --without-x --without-ijs --without-gimp-print --prefix=/usr
+    if ./configure \
+            --with-drivers=FILES \
+            --without-x \
+            --without-ijs \
+            --without-gimp-print \
+            --without-pdftoraster \
+            --without-omni \
+            --disable-cups \
+            --disable-gtk \
+            --disable-cairo \
+            --disable-dynamic \
+            --prefix=/usr
         then
         echo "Done."
     else
