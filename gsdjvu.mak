@@ -8,6 +8,6 @@ $(DD)djvumask.dev : $(djvu_)
 $(DD)djvusep.dev : $(djvu_)
 	$(SETDEV) $(DD)djvusep $(djvu_)
 
-$(GLOBJ)gdevdjvu.$(OBJ) : $(GLSRC)gdevdjvu.c
+$(GLOBJ)gdevdjvu.$(OBJ) : $(GLSRC)gdevdjvu.c $(GLGEN)arch.h
 	$(GLCC) $(GLO_)gdevdjvu.$(OBJ) $(C_) $(GLSRC)gdevdjvu.c
 
