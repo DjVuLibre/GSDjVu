@@ -4,7 +4,7 @@
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
    -- Copyright (C) 2002-2007 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.16 2011-01-25 17:31:01 leonb Exp $
+   $Id: gdevdjvu.c,v 1.17 2011-01-25 17:32:34 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
@@ -3764,7 +3764,7 @@ validate_outputfilename(const char *data, int size, bool *rpp, gs_memory_t *memo
     const char *hasformat = 0;
     gs_parsed_file_name_t parsed;
 #if GS_VERSION >= 900
-    int code = gx_parse_output_file_name(&parsed, &hasformat, data, size,memory);
+    int code = gx_parse_output_file_name(&parsed, &hasformat, data, size, memory);
 #else
     int code = gx_parse_output_file_name(&parsed, &hasformat, data, size);
 #endif
