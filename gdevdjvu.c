@@ -4,7 +4,7 @@
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
    -- Copyright (C) 2002-2007 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.18 2011-01-25 17:43:17 leonb Exp $
+   $Id: gdevdjvu.c,v 1.19 2011-01-25 17:45:56 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
@@ -108,8 +108,8 @@
 #include "gxstdio.h"
 #include "gdevprn.h"
 
-#ifndef GS_REVISION
-# define GS_REVISION 0
+#ifndef GS_VERSION
+# define GS_VERSION 0
 #endif
 
 /* Debugging characters for gs option -z */
@@ -3763,7 +3763,7 @@ validate_outputfilename(const char *data, int size, bool *rpp, gs_memory_t *memo
 {
     const char *hasformat = 0;
     gs_parsed_file_name_t parsed;
-#if GS_REVISION >= 900
+#if GS_VERSION >= 900
     int code = gx_parse_output_file_name(&parsed, &hasformat, data, size, memory);
 #else
     int code = gx_parse_output_file_name(&parsed, &hasformat, data, size);
