@@ -292,7 +292,7 @@ if [ $do_make = yes ] ; then
     echo "Running 'make'."
     #echo -n "Press <enter> to start."
     #read tmp
-    if make 
+    if make "$@"
         then
         echo "Done."
     else

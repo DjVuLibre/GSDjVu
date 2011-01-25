@@ -4,7 +4,7 @@
    DjVu Device for Ghostscript 
    -- Copyright (C) 2000 AT&T Corp.
    -- Copyright (C) 2002-2007 Leon Bottou.
-   $Id: gdevdjvu.c,v 1.15 2007-12-10 16:48:32 leonb Exp $
+   $Id: gdevdjvu.c,v 1.16 2011-01-25 17:31:01 leonb Exp $
    ------------------------------------------------------------------------ 
 
    This file is derived from the gsdjvu files released in June 2005 
@@ -108,6 +108,9 @@
 #include "gxstdio.h"
 #include "gdevprn.h"
 
+#ifndef GS_VERSION
+# define GS_VERSION 0
+#endif
 
 /* Debugging characters for gs option -z */
 #define DEBUG_CHAR_DLIST    0
@@ -1505,7 +1508,7 @@ htable_alloc(p2mem *mem, int payloadsize)
 	h->mem = mem;
 	h->psize = payloadsize;
 	/* compute alignment of htablelink */
-	a = ((int)&(((struct{char pad; htablelink e;}*)0)->e));
+	a = (int)((size_t)&(((struct{char pad; htablelink e;}*)0)->e));
 	/* compute offset of htablelink w.r.t. payload */
 	h->xsize = (int)((payloadsize + a - 1) / a) * a;
 	/* setup initial bucket table */
@@ -3756,11 +3759,15 @@ djvu_pdfmark(gx_device_djvu *cdev, gs_param_string_array *pma)
 
 /* Internal: Validate outputfilename */
 private bool
-validate_outputfilename(const char *data, int size, bool *rpp)
+validate_outputfilename(const char *data, int size, bool *rpp, gs_memory_t *memory)
 {
     const char *hasformat = 0;
     gs_parsed_file_name_t parsed;
+#if GS_VERSION >= 900
+    int code = gx_parse_output_file_name(&parsed, &hasformat, data, size,memory);
+#else
     int code = gx_parse_output_file_name(&parsed, &hasformat, data, size);
+#endif
     if (code<0 || size>=prn_fname_sizeof)
         return false;
     *rpp = (hasformat ? true: false);
@@ -3802,7 +3809,7 @@ djvu_put_params(gx_device * dev, gs_param_list * plist)
     /* Validate OutputFile */
     ofs.data = 0;
     PUT(param_read_string, "OutputFile", &ofs, 
-        validate_outputfilename((const char*)ofs.data, ofs.size, &rpp));
+        validate_outputfilename((const char*)ofs.data, ofs.size, &rpp, cdev->memory));
     /* Validate remaining parms */
     PUT(param_read_int, "Threshold", &thr, (thr>=0 && thr<=100));
     PUT(param_read_int, "FgColors", &fgc, (fgc>=1 && fgc<=4000));
