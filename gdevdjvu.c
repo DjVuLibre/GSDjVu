@@ -3758,12 +3758,12 @@ djvu_pdfmark(gx_device_djvu *cdev, gs_param_string_array *pma)
 
 /* Internal: Validate outputfilename */
 private bool
-validate_outputfilename(const char *data, int size, bool *rpp, gs_memory_t *memory)
+validate_outputfilename(const char *data, int size, bool *rpp, gs_memory_t *mem)
 {
     const char *hasformat = 0;
     gs_parsed_file_name_t parsed;
 #if GS_VERSION >= 900
-    int code = gx_parse_output_file_name(&parsed, &hasformat, data, size, memory);
+    int code = gx_parse_output_file_name(&parsed, &hasformat, data, size, mem);
 #else
     int code = gx_parse_output_file_name(&parsed, &hasformat, data, size);
 #endif
@@ -4223,8 +4223,13 @@ djvu_text_extract(gs_text_enum_t *pte)
     bool lastpointvalid = fat->lastpointvalid;
     gs_int_point point;
     bool pointvalid = djvu_currentpoint(fat->pgs, &point);
-    if (font && glyph) 
+    if (font && glyph) {
+#if GS_VERSION >= 903
+        unicode = font->procs.decode_glyph(font, glyph, -1);
+#else
         unicode = font->procs.decode_glyph(font, glyph);
+#endif
+    }
     if (unicode != GS_NO_CHAR && lastpointvalid && pointvalid) {
         txtmark *mark = 0;
         char *arg = 0;
