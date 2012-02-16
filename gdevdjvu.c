@@ -81,7 +81,6 @@
 #include "string_.h"
 #include "math_.h"
 #include <stdlib.h>   /* for qsort */
-#include "gserror.h"
 #include "gserrors.h"
 #include "gsmemory.h"
 #include "gsdevice.h"
