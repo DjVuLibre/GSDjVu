@@ -326,6 +326,7 @@ if [ $do_install = "yes" ] ; then
     
     echo "  Programs"
     $INSTALL -m 755  gsdjvu "$DESTDIR$gsdir/"
+    $INSTALL -m 755  djvudigital "$DESTDIR$gsdir/"
     $INSTALL -m 755  bin/gs "$DESTDIR$gsdir/bin"
     
     echo "  Fonts"
