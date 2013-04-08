@@ -4456,7 +4456,6 @@ lowcolor_separate(gx_device_djvu *cdev, drawlist *dl,
     int raster;
     int nbands;
     int bandh;
-    int ncolors;
     uint perim;
     uint hardperim;
     /* Determine band size and allocate buffer */
@@ -4515,11 +4514,10 @@ lowcolor_separate(gx_device_djvu *cdev, drawlist *dl,
     }
     /* Perform test on perimeter ratio */
     code = 1;
-    ncolors = colorhash->nelems;
 #ifdef DEBUG
     if (gs_debug_c(DEBUG_CHAR_LOCOLOR))
         fprintf(STDOUT,"LC: perim=%d hardperim=%d ncolors=%d\n", 
-                perim, hardperim, ncolors);
+                perim, hardperim, colorhash->nelems);
 #endif
     while (perim >= 0x1000000) { perim >>= 1; hardperim >>= 1; }
     if ( hardperim * 100 <= perim * (100 - cdev->threshold) )
