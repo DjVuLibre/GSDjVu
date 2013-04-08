@@ -200,9 +200,6 @@ fi
 
 echo "Patching Ghostscript.."
 
-rm -f 2>/dev/null gsdjvu
-cp $gsfiles/gsdjvu gsdjvu
-
 rm -f 2>/dev/null $base/gdevdjvu.c
 cp $gsfiles/gdevdjvu.c $base/gdevdjvu.c
 
@@ -292,7 +289,7 @@ if [ $do_make = yes ] ; then
     echo "Running 'make'."
     #echo -n "Press <enter> to start."
     #read tmp
-    if make "$@"
+    if make
         then
         echo "Done."
     else
@@ -325,9 +322,9 @@ if [ $do_install = "yes" ] ; then
     $MKDIRP 2>/dev/null "$DESTDIR$gsdir/lib"
     
     echo "  Programs"
-    $INSTALL -m 755  gsdjvu "$DESTDIR$gsdir/"
-    $INSTALL -m 755  djvudigital "$DESTDIR$gsdir/"
-    $INSTALL -m 755  bin/gs "$DESTDIR$gsdir/bin"
+    $INSTALL -m 755 $gsfiles/gsdjvu "$DESTDIR$gsdir/"
+    $INSTALL -m 755 $gsfiles/djvudigital "$DESTDIR$gsdir/"
+    $INSTALL -m 755 bin/gs "$DESTDIR$gsdir/bin"
     
     echo "  Fonts"
     for n in fonts/* ; do 
