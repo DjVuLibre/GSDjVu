@@ -44,6 +44,7 @@ including MacOS X and Cygwin.
         [optional] ghostscript-fonts-std-8.11.tar.gz 
         [optional] jpegsrc.v6b.tar.gz 
         [optional] libpng-1.2.6.tar.gz
+        [optional] openjpeg-2.0.0.tar.gz
         [optional] zlib-1.2.1.tar.gz
       
       These files can be found under 
@@ -54,7 +55,7 @@ including MacOS X and Cygwin.
       Of course things will break badly if it does not find them.
 
       If you do not provide any of the last three files,
-      jpegsrc, libpng and zlib, the building script will
+      jpegsrc, libpng , openjpeg, and zlib, the building script will
       attempt to use the system wide libraries.
       This only works if the corresponding development files
       are installed on your system. This usually is better 
