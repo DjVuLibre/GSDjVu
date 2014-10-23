@@ -4285,9 +4285,13 @@ djvu_text_free(gs_memory_t * memory, void *vpte, client_name_t cname)
     fat_text_enum_procs_t *fat = (fat_text_enum_procs_t *)pte->procs;
     gx_device_djvu * const cdev = (gx_device_djvu *)pte->dev;
     if (cdev->curmask)
-        if (cdev->curflags & DLIST_TEXT)
+        if (cdev->curflags & DLIST_TEXT) {
+            cdev->curflags &= ~DLIST_RECURSIVE;
             djvu_flush_current(cdev);
+        }
     ASSERT(fat == fat->myself);
+    pte->procs = fat->origprocs;
+    pte->rc.free = fat->origfree;
     fat->origfree(memory, vpte, cname);
     p2mem_free(fat->pmem, fat->myself);
 }
@@ -4302,9 +4306,6 @@ djvu_text_process(gs_text_enum_t * pte)
     int oper;
     /* delegate */
     ASSERT(fat == fat->myself);
-    if (cdev->extracttext)
-        if (djvu_currentpoint(fat->pgs, &fat->lastpoint))
-            fat->lastpointvalid = true;
     oper = pte->text.operation;
     if (cdev->extracttext)
         pte->text.operation |= TEXT_INTERVENE;
@@ -4343,18 +4344,20 @@ djvu_text_begin(gx_device *dev, gs_imager_state * pis,
     /* Create default text enumerator */
     code = gx_default_text_begin(dev, pis, text, font, path, 
                                  pdcolor, pcpath, mem, ppenum );
+    pte = *ppenum;
     /* Return immediately when */
     if (code < 0) 
         return code; /* failed */
-    pte = *ppenum;
     if (cdev->curflags & DLIST_RECURSIVE)
         return code; /* called within another text operation */
     if (! (pte->text.operation & TEXT_DO_DRAW))
         return code; /* not a drawing operation */
+    /* Flush current object */
+    code = djvu_flush_current(cdev);
+    if (code < 0) return code;
     /* Create fat procedure vector */
     if (! (fat = p2mem_alloc(cdev->pmem, sizeof(fat_text_enum_procs_t))))
 	return_VMerror;
-    /* Initialize fat procedure vector */
     fat->procs = *pte->procs;
     fat->origprocs = pte->procs;
     fat->origfree = pte->rc.free;
@@ -4363,9 +4366,9 @@ djvu_text_begin(gx_device *dev, gs_imager_state * pis,
     fat->pmem = cdev->pmem;
     fat->pgs = (gs_state*)pis;
     fat->lastpointvalid = false;
-    /* Flush current object */
-    code = djvu_flush_current(cdev);
-    if (code < 0) return code;
+    if (cdev->extracttext)
+        if (djvu_currentpoint((gs_state*)pis, &fat->lastpoint))
+            fat->lastpointvalid = true;
     /* Prepare text object */
     color = gx_no_color_index;
     if (  pte->pdcolor
