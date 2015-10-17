@@ -3175,6 +3175,11 @@ drawlist_play(drawlist_head *head, uint flags,
         [ /Count <c> /Page <p> /Title (<ttl>) /OUT pdfmark
    produces the following comment in the sep file:
         # B <c> (<ttl>) (#<p>)
+
+   -- PAGELABEL pdfmarks (pdf interpreter does not do this well)
+        [ /Label (<ttl>) /PAGELABEL pdfmark
+   produces the following comment in the sep file:
+        # T (<ttl>)
 */
 
 
@@ -3205,6 +3210,9 @@ struct pdfmark_s {
             char *title;
             int page;
         } b;
+        struct pdfmark_p_s {
+	    char *title;
+	} p;
     } u;
 };
 
@@ -3744,6 +3752,20 @@ djvu_pdfmark(gx_device_djvu *cdev, gs_param_string_array *pma)
         }
         p2mem_free(cdev->pmem, subtype);
         p2mem_free(cdev->pmem, action);
+    } else if (size>=1 && pdfmark_eq(&pma->data[size-1], "PAGELABEL")) {
+	char *label = 0;
+	if (pdfmark_find(cdev->pmem, pma, "/Label", &label) >= 0 && label) {
+	    pdfmark *mark = p2mem_alloc(cdev->pmem, sizeof(pdfmark));
+	    if (mark) {
+		memset(mark, 0, sizeof(pdfmark));
+		mark->type = 'P';
+		mark->u.p.title = label;
+		mark->next = cdev->marks;
+		cdev->marks = mark;
+		label = 0;
+	    }
+	}
+	p2mem_free(cdev->pmem, label);
     } else if (size>=1 && pdfmark_eq(&pma->data[size-1], "OUT")) {
         pdfmark *mark = 0;
         code = pdfmark_do_out(cdev->pmem, pma, &mark);
@@ -4121,7 +4143,7 @@ private int
 unicode_to_utf8(gs_char unicode, byte *utf)
 {
     int i = 0;
-    if (unicode < 0) {
+    if (unicode <= 0) {
         utf[0] = 0;
     } else if (unicode <= 0x7f) {
         utf[i++] = unicode;
@@ -5537,6 +5559,9 @@ djvusep_process(gx_device_djvu *cdev)
                     fprintf( cdev->outputfile,
                              "# B %d %s (#%d)\n",
                              m->count, m->title, m->page );
+                } else if (mark->type == 'P') {
+		    fprintf( cdev->outputfile,
+                             "# P %s\n", mark->u.p.title);
                 }
             }
             for (dl=cdev->head.first; dl; dl=dl->next) {

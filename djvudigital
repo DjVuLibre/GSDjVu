@@ -351,11 +351,10 @@ case "$infile" in
           $gsdjvu "-r$dpi" $gsverbosity $gsprinted $gsepsf \
             "-sOutputFile=$backend" $gsarg0 $gsarg1 $gsarg2 -_ -c quit
         else
-          echo -n gzip -d -c '"'"$infile"'"' '|' ""
-          echo -n $gsdjvu "-r$dpi" $gsverbosity $gsprinted $gsepsf ""
-          echo -n "-sOutputFile=""'""$backend""'" ""
-          echo -n $gsarg0 $gsarg1 $gsarg2 -_ -c quit
-          echo
+          echo gzip -d -c '"'"$infile"'"' '|' "" \
+             $gsdjvu "-r$dpi" $gsverbosity $gsprinted $gsepsf "" \
+             "-sOutputFile=""'""$backend""'" "" \
+             $gsarg0 $gsarg1 $gsarg2 -_ -c quit
         fi
         ;;
     *)
@@ -364,10 +363,9 @@ case "$infile" in
             "-sOutputFile=$backend" $gsarg0 $gsarg1 $gsarg2 \
             -f "$infile" -c quit
         else
-          echo -n $gsdjvu "-r$dpi" $gsverbosity $gsprinted $gsepsf ""
-          echo -n "-sOutputFile=""'""$backend""'" ""
-          echo -n $gsarg0 $gsarg1 $gsarg2 -f '"'"$infile"'"' -c quit
-          echo
+          echo $gsdjvu "-r$dpi" $gsverbosity $gsprinted $gsepsf "" \
+             "-sOutputFile=""'""$backend""'" "" \
+             $gsarg0 $gsarg1 $gsarg2 -f '"'"$infile"'"' -c quit
         fi
         ;;
 esac

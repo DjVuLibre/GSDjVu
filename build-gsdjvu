@@ -24,7 +24,10 @@ do_configure=yes
 do_make=yes
 do_install=yes
 
+# --------------------------------------------------
+# Portable echo -n
 
+echon=`which printf >/dev/null && echo 'printf' || echo 'echo -n'`
 
 # --------------------------------------------------
 # Check that we can locate the gsdjvu files
@@ -51,7 +54,7 @@ EOF
 
 tmp=unk
 while [ "$tmp" != yes -a "$tmp" != YES ]; do
-  echo -n 'Please type "YES" or "NO": '
+  $echon 'Please type "YES" or "NO": '
   read tmp
   if [ "$tmp" = no -o "$tmp" = NO ] ; then
      echo "You must understand these terms before proceeding further."
@@ -78,7 +81,7 @@ See file README for more information.
 Simply type <enter> to accept the default 
 directory "$builddir".
 EOF
-echo -n "Enter the directory name: "
+$echon "Enter the directory name: "
 read tmp
 if [ -n "$tmp" ] ; then
     builddir="$tmp"
@@ -131,7 +134,7 @@ checkfile "OpenJPEG" "$openjpeg_src" \
 checkfile "ZLib" "$zlib_src" \
     || echo " - Trying to use system library instead."
 
-echo -n "Is this correct [Y/n] ?"
+$echon "Is this correct [Y/n] ?"
 read tmp
 case "$tmp" in
 n*) exit 10 ;;
@@ -236,7 +239,7 @@ echo "Done."
 
 if [ $do_configure = yes ] ; then
     echo "Running 'configure'."
-    #echo -n "Press <enter> to start."
+    #$echon "Press <enter> to start."
     #read tmp
     if ./configure \
             --with-drivers=FILES \
@@ -297,7 +300,7 @@ echo "Done."
 
 if [ $do_make = yes ] ; then
     echo "Running 'make'."
-    #echo -n "Press <enter> to start."
+    #$echon "Press <enter> to start."
     #read tmp
     if make
         then
@@ -315,7 +318,7 @@ fi
 if [ $do_install = "yes" ] ; then
     
     echo "Preparing files to install."
-    #echo -n "Press <enter> to start."
+    #$echon "Press <enter> to start."
     #read tmp
 
     INSTCOPY=src/instcopy
