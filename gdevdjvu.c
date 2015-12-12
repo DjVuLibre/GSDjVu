@@ -3216,6 +3216,100 @@ struct pdfmark_s {
     } u;
 };
 
+/* Helper: Convert unicode to utf8 */
+private int
+unicode_to_utf8(gs_char unicode, byte *utf)
+{
+    int i = 0;
+    if (unicode <= 0) {
+        utf[0] = 0;
+    } else if (unicode <= 0x7f) {
+        utf[i++] = unicode;
+    } else if (unicode <= 0x7ff) {
+        utf[i++] = 0xc0 + ((unicode >> 6) & 0x1f);
+        utf[i++] = 0x80 + (unicode & 0x3f);
+    } else if (unicode <= 0xffff) {
+        utf[i++] = 0xe0 + ((unicode >> 12) & 0x0f);
+        utf[i++] = 0x80 + ((unicode >> 6) & 0x3f);
+        utf[i++] = 0x80 + (unicode & 0x3f);
+    } else if (unicode <= 0x1fffff) {
+        utf[i++] = 0xf0 + ((unicode >> 18) & 0x07);
+        utf[i++] = 0x80 + ((unicode >> 12) & 0x3f);
+        utf[i++] = 0x80 + ((unicode >> 6) & 0x3f);
+        utf[i++] = 0x80 + (unicode & 0x3f);
+    } else if (unicode <= 0x3ffffff) {
+        utf[i++] = 0xf8 + ((unicode >> 24) & 0x03);
+        utf[i++] = 0x80 + ((unicode >> 18) & 0x3f);
+        utf[i++] = 0x80 + ((unicode >> 12) & 0x3f);
+        utf[i++] = 0x80 + ((unicode >> 6) & 0x3f);
+        utf[i++] = 0x80 + (unicode & 0x3f);
+    } else {
+        utf[i++] = 0xfc + ((unicode >> 30) & 0x01);
+        utf[i++] = 0x80 + ((unicode >> 24) & 0x3f);
+        utf[i++] = 0x80 + ((unicode >> 18) & 0x3f);
+        utf[i++] = 0x80 + ((unicode >> 12) & 0x3f);
+        utf[i++] = 0x80 + ((unicode >> 6) & 0x3f);
+        utf[i++] = 0x80 + (unicode & 0x3f);
+    }
+    utf[i] = 0;
+    return i;
+}
+
+/* Helper-- convert pdfdocencoding to utf8 */
+private int
+pdfdocencoding_to_utf8(byte b, byte *utf)
+{
+    static const gs_char at0x18[] = { 
+        0x02d8, 0x02c7, 0x02c6, 0x02d9, 0x02dd, 0x02db, 0x02da, 0x02dc };
+    static const gs_char at0x80[] = {
+        0x2022, 0x2020, 0x2021, 0x2026, 0x2014, 0x2013, 0x0192, 0x2044, 
+        0x2039, 0x203a, 0x2212, 0x2030, 0x201e, 0x201c, 0x201d, 0x2018,
+        0x2019, 0x201a, 0x2122, 0xfb01, 0xfb02, 0x0141, 0x0152, 0x0160,
+        0x0178, 0x017d, 0x0131, 0x0142, 0x0153, 0x0161, 0x017e, 0xfffd,
+        0x20ac };
+    gs_char unicode = (gs_char)b;
+    if (b >= 0x18 && b < 0x20)
+        unicode = at0x18[b-0x18];
+    else if (b >= 0x80 && b <= 0xa0)
+        unicode = at0x80[b-0x80];
+    return unicode_to_utf8(unicode, utf);
+}
+
+/* Helper: return postscript string encoded on 7 bit ascii. */
+private char *
+make_ps_string(p2mem *mem, const byte *p, uint l)
+{
+    int i;
+    int n = l+3;
+    char *str, *s;
+    static const char odigit[] = "01234567";
+    for (i=0; i<l; i++)
+        if (p[i]=='(' || p[i]==')' || p[i]=='\\')
+            n += 1;
+        else if (! (p[i]>=0x20 && p[i]<0x7f))
+            n += 3;
+    if (! (str = s = p2mem_alloc(mem, n)))
+        return 0;
+    *s++ = '(';
+    for (i=0; i<l; i++) {
+        byte b = p[i];
+        if (b=='(' || b==')' || b=='\\') {
+            *s++ = '\\';
+            *s++ = b;
+        } else if ( b>=0x20 && b<0x7f ) {
+            *s++ = b;
+        } else {
+            *s++ = '\\';
+            *s++ = odigit[(b>>6)&0x3];            
+            *s++ = odigit[(b>>3)&0x7];
+            *s++ = odigit[(b>>0)&0x7];
+        }
+    }
+    *s++ = ')';
+    *s++ = 0;
+    return str;
+}
+
 /* Internal */
 private int
 pdfmark_eq(const gs_param_string *p, const char *q)
@@ -3233,6 +3327,77 @@ pdfmark_dup(p2mem *mem, const gs_param_string *p, char **out)
     return 0;
 }
 
+/* Internal -- recode psstring as utf8 */
+private int
+pdfmark_recode(p2mem *mem, const gs_param_string *p, char **out)
+{
+    int len = p->size;
+    const byte *data = p->data;
+    byte *tmp = p2mem_alloc(mem, len+1);
+    byte *ptr = tmp;
+    byte *utf = 0;
+    int ret = 0;
+    int i;
+    if (!tmp) goto vmerror;
+    if (len < 2) goto error;
+    if (data[0]=='<' && data[len-1]=='>' && !(len&1)) {
+        for (i=1; i<len-1; i++) {
+            byte b;
+            if (data[i]>='0' && data[i]<='9') b = data[i]-'0';
+            else if (data[i]>='A' && data[i]<='F') b = data[i]-'A';
+            else if (data[i]>='a' && data[i]<='f') b = data[i]-'a';
+            else goto error;
+            ptr[0] = (ptr[0] << 4) | b;
+            if (! (i&1)) ptr++;
+        }
+    } else if (data[0] == '(' && data[len-1] == ')') {
+        for (i=1; i<len-1; i++) {
+            byte b = data[i];
+            if (b=='\\') {
+                char *s;
+                static const char *s1 = "nrtbf";
+                static const char *s2 = "\n\r\t\b\f";
+                if (++i >= len-1) goto error;
+                b = data[i];
+                if ((s = strchr(s1, b))) 
+                    b = s2[s-s1];
+                else if (b >= '0' || b <= '7') {
+                    b = b - '0';
+                    while (i+1 < len-1 && data[i+1] >= 0 && data[i+1] <= '7')
+                        b = (b << 3) + (data[++i]-'0');
+                } 
+            }
+            *ptr++ = b;
+        }
+    } else
+        goto error;
+    len = ptr - tmp;
+    if (! (utf = p2mem_alloc(mem, 3*len))) goto vmerror;
+    ptr = utf;
+    if (len>=2 && tmp[0]==0xfe && tmp[1]==0xff) // unicode
+        for (i=0; i<len-1; i+=2)
+            ptr += unicode_to_utf8((gs_char)(tmp[i]+((int)tmp[i+1]<<8)), ptr);
+    else
+        for (i=0; i<len; i++)
+            ptr += pdfdocencoding_to_utf8(tmp[i], ptr);
+    len = ptr - utf;
+    if ((*out = make_ps_string(mem, utf, len)))
+        goto xit;
+ error:
+    ret = 1;
+    goto xit;
+ vmerror:
+    ret = -1;
+ xit:
+    p2mem_free(mem, tmp); 
+    p2mem_free(mem, utf); 
+    if (ret != 0) { *out = 0; }
+    if (ret < 0) return_VMerror;
+    return ret;
+    goto xit;
+    goto xit;
+}
+
 /* Internal */
 private int
 pdfmark_find(p2mem *mem, gs_param_string_array *pma, 
@@ -3242,6 +3407,19 @@ pdfmark_find(p2mem *mem, gs_param_string_array *pma,
     for (i=0; i<pma->size-2; i+=2)
         if (pdfmark_eq(&pma->data[i], key)) 
             return pdfmark_dup(mem, &pma->data[i+1], out);
+    *out = 0;
+    return 1;
+}
+
+/* Internal */
+private int
+pdfmark_find_recode(p2mem *mem, gs_param_string_array *pma, 
+                    const char *key, char **out)
+{
+    int i;
+    for (i=0; i<pma->size-2; i+=2)
+        if (pdfmark_eq(&pma->data[i], key)) 
+            return pdfmark_recode(mem, &pma->data[i+1], out);
     *out = 0;
     return 1;
 }
@@ -3396,7 +3574,7 @@ pdfmark_do_out(p2mem *mem, gs_param_string_array *pma, pdfmark **pmark)
     /* Search count */
     if (((code = pdfmark_find(mem, pma, "/Count", &temp0)) < 0) ||
         ((code = pdfmark_find(mem, pma, "/Page", &temp1)) < 0) ||
-        ((code = pdfmark_find(mem, pma, "/Title", &temp2)) < 0) )
+        ((code = pdfmark_find_recode(mem, pma, "/Title", &temp2)) < 0) )
         goto xit;
     code = 2;
     if (temp0 && sscanf(temp0, "%d", &mark->count) != 1) goto xit;
@@ -4136,82 +4314,6 @@ typedef struct fat_text_enum_procs_s {
     gs_int_point lastpoint;
     bool lastpointvalid;
 } fat_text_enum_procs_t;
-
-
-/* Helper: Convert unicode to utf8 */
-private int
-unicode_to_utf8(gs_char unicode, byte *utf)
-{
-    int i = 0;
-    if (unicode <= 0) {
-        utf[0] = 0;
-    } else if (unicode <= 0x7f) {
-        utf[i++] = unicode;
-    } else if (unicode <= 0x7ff) {
-        utf[i++] = 0xc0 + ((unicode >> 6) & 0x1f);
-        utf[i++] = 0x80 + (unicode & 0x3f);
-    } else if (unicode <= 0xffff) {
-        utf[i++] = 0xe0 + ((unicode >> 12) & 0x0f);
-        utf[i++] = 0x80 + ((unicode >> 6) & 0x3f);
-        utf[i++] = 0x80 + (unicode & 0x3f);
-    } else if (unicode <= 0x1fffff) {
-        utf[i++] = 0xf0 + ((unicode >> 18) & 0x07);
-        utf[i++] = 0x80 + ((unicode >> 12) & 0x3f);
-        utf[i++] = 0x80 + ((unicode >> 6) & 0x3f);
-        utf[i++] = 0x80 + (unicode & 0x3f);
-    } else if (unicode <= 0x3ffffff) {
-        utf[i++] = 0xf8 + ((unicode >> 24) & 0x03);
-        utf[i++] = 0x80 + ((unicode >> 18) & 0x3f);
-        utf[i++] = 0x80 + ((unicode >> 12) & 0x3f);
-        utf[i++] = 0x80 + ((unicode >> 6) & 0x3f);
-        utf[i++] = 0x80 + (unicode & 0x3f);
-    } else {
-        utf[i++] = 0xfc + ((unicode >> 30) & 0x01);
-        utf[i++] = 0x80 + ((unicode >> 24) & 0x3f);
-        utf[i++] = 0x80 + ((unicode >> 18) & 0x3f);
-        utf[i++] = 0x80 + ((unicode >> 12) & 0x3f);
-        utf[i++] = 0x80 + ((unicode >> 6) & 0x3f);
-        utf[i++] = 0x80 + (unicode & 0x3f);
-    }
-    utf[i] = 0;
-    return i;
-}
-
-
-/* Helper: make postscript string */
-private char *
-make_ps_string(p2mem *mem, const byte *p, uint l)
-{
-    int i;
-    int n = l+3;
-    char *str, *s;
-    static const char odigit[] = "01234567";
-    for (i=0; i<l; i++)
-        if (p[i]=='(' || p[i]==')' || p[i]=='\\')
-            n += 1;
-        else if (! (p[i]>=0x20 && p[i]<0x7f))
-            n += 3;
-    if (! (str = s = p2mem_alloc(mem, n)))
-        return 0;
-    *s++ = '(';
-    for (i=0; i<l; i++) {
-        byte b = p[i];
-        if (b=='(' || b==')' || b=='\\') {
-            *s++ = '\\';
-            *s++ = b;
-        } else if ( b>=0x20 && b<0x7f ) {
-            *s++ = b;
-        } else {
-            *s++ = '\\';
-            *s++ = odigit[(b>>6)&0x3];            
-            *s++ = odigit[(b>>3)&0x7];
-            *s++ = odigit[(b>>0)&0x7];
-        }
-    }
-    *s++ = ')';
-    *s++ = 0;
-    return str;
-}
 
 
 /* Utility: finds the current point in image coordinates */
