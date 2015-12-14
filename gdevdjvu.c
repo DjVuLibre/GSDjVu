@@ -3932,7 +3932,7 @@ djvu_pdfmark(gx_device_djvu *cdev, gs_param_string_array *pma)
         p2mem_free(cdev->pmem, action);
     } else if (size>=1 && pdfmark_eq(&pma->data[size-1], "PAGELABEL")) {
 	char *label = 0;
-	if (pdfmark_find(cdev->pmem, pma, "/Label", &label) >= 0 && label) {
+	if (pdfmark_find_recode(cdev->pmem, pma, "/Label", &label) >= 0 && label) {
 	    pdfmark *mark = p2mem_alloc(cdev->pmem, sizeof(pdfmark));
 	    if (mark) {
 		memset(mark, 0, sizeof(pdfmark));
