@@ -3363,7 +3363,7 @@ pdfmark_recode(p2mem *mem, const gs_param_string *p, char **out)
                     b = s2[s-s1];
                 else if (b >= '0' || b <= '7') {
                     b = b - '0';
-                    while (i+1 < len-1 && data[i+1] >= 0 && data[i+1] <= '7')
+                    while (i+1 < len-1 && data[i+1] >= '0' && data[i+1] <= '7')
                         b = (b << 3) + (data[++i]-'0');
                 } 
             }
