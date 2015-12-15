@@ -3343,12 +3343,18 @@ pdfmark_recode(p2mem *mem, const gs_param_string *p, char **out)
     if (data[0]=='<' && data[len-1]=='>' && !(len&1)) {
         for (i=1; i<len-1; i++) {
             byte b;
-            if (data[i]>='0' && data[i]<='9') b = data[i]-'0';
-            else if (data[i]>='A' && data[i]<='F') b = data[i]-'A';
-            else if (data[i]>='a' && data[i]<='f') b = data[i]-'a';
-            else goto error;
-            ptr[0] = (ptr[0] << 4) | b;
-            if (! (i&1)) ptr++;
+            if (data[i]>='0' && data[i]<='9') 
+                b = data[i] - '0';
+            else if (data[i]>='A' && data[i]<='F') 
+                b = data[i] - 'A' + 10;
+            else if (data[i]>='a' && data[i]<='f') 
+                b = data[i] - 'a' + 10;
+            else 
+                goto error;
+            if (i&1) 
+                *ptr = (b<<4); 
+            else 
+                *ptr++ |= b;
         }
     } else if (data[0] == '(' && data[len-1] == ')') {
         for (i=1; i<len-1; i++) {
@@ -3363,7 +3369,9 @@ pdfmark_recode(p2mem *mem, const gs_param_string *p, char **out)
                     b = s2[s-s1];
                 else if (b >= '0' || b <= '7') {
                     b = b - '0';
-                    while (i+1 < len-1 && data[i+1] >= '0' && data[i+1] <= '7')
+                    if (i+1 < len-1 && data[i+1] >= '0' && data[i+1] <= '7')
+                        b = (b << 3) + (data[++i]-'0');
+                    if (i+1 < len-1 && data[i+1] >= '0' && data[i+1] <= '7')
                         b = (b << 3) + (data[++i]-'0');
                 } 
             }
@@ -3394,8 +3402,6 @@ pdfmark_recode(p2mem *mem, const gs_param_string *p, char **out)
     if (ret != 0) { *out = 0; }
     if (ret < 0) return_VMerror;
     return ret;
-    goto xit;
-    goto xit;
 }
 
 /* Internal */
