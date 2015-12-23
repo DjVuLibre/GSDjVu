@@ -204,6 +204,7 @@ gsprinted="-dPrinted"
 gsepsf="-dEPSCrop"
 gsverbosity=
 csepverbosity='-v'
+dsedverbosity=
 djvutext=
 infile=
 outfile=
@@ -238,9 +239,10 @@ do
       --verbose|--v)
           gsverbosity=''
           csepverbosity='-vv'
+          dsedverbosity='-v'
           ;;
       --dryrun)
-          run=echo
+          run="echo +"
           ;;
       --sepfile)
           sepfile=yes
@@ -386,7 +388,7 @@ if [ "$sepfile" = "yes" ]
 then
   backend="$outfile"
 else
-  backend="|$csepdjvu -d "'"'"$dpi"'"'
+  backend="| "'"'"$csepdjvu"'"'" -d $dpi"
   backend="$backend $csepverbosity $csepargs - "'"'"$outfile"'"'
 fi
 
@@ -395,22 +397,22 @@ case "$infile" in
     *.gz|*.GZ)
         if test -z "$run" ; then
           gzip -d -c "$infile" | \
-          $gsdjvu "-r$dpi" $gsverbosity $gsprinted $gsepsf \
+          "$gsdjvu" "-r$dpi" $gsverbosity $gsprinted $gsepsf \
             "-sOutputFile=$backend" $gsarg0 $gsarg1 $gsarg2 -_ -c quit
         else
-          echo gzip -d -c '"'"$infile"'"' '|' "" \
-             $gsdjvu "-r$dpi" $gsverbosity $gsprinted $gsepsf "" \
+          $run gzip -d -c '"'"$infile"'"' '|' "" \
+             "$gsdjvu" "-r$dpi" $gsverbosity $gsprinted $gsepsf "" \
              "-sOutputFile=""'""$backend""'" "" \
              $gsarg0 $gsarg1 $gsarg2 -_ -c quit
         fi
         ;;
     *)
         if test -z "$run" ; then
-          $gsdjvu "-r$dpi" $gsverbosity $gsprinted $gsepsf \
+          "$gsdjvu" "-r$dpi" $gsverbosity $gsprinted $gsepsf \
             "-sOutputFile=$backend" $gsarg0 $gsarg1 $gsarg2 \
             -f "$infile" -c quit
         else
-          echo $gsdjvu "-r$dpi" $gsverbosity $gsprinted $gsepsf "" \
+          $run "$gsdjvu" "-r$dpi" $gsverbosity $gsprinted $gsepsf "" \
              "-sOutputFile=""'""$backend""'" "" \
              $gsarg0 $gsarg1 $gsarg2 -f '"'"$infile"'"' -c quit
         fi
@@ -423,6 +425,7 @@ esac
 if ( file "$infile" | grep -q -i pdf ) \
     && test "$popplertext$popplermeta" != "00"
 then
+
     # check for djvused
     if [ -z "$djvused" ]
     then
@@ -436,6 +439,7 @@ djvudigital: cannot locate djvused executable.
 EOF
         exit 10
     fi
+
     # check for pdftotext
     if [ -z "$pdftotext" ] 
     then
@@ -449,21 +453,26 @@ djvudigital: cannot locate pdftotext executable.
 EOF
         exit 10
     fi
-    # create awk parser
+
+    # xml parser for awk :-)
     xml2dsed="$tempdir/xml2dsed.awk"
     cat > "$xml2dsed" <<\EOF
+
 # initializations
+
 function _esc_init() {
     _ctrl = ""
     for (i=1; i<32; i++) { _ctrl = _ctrl sprintf("%c",i) }
     _esc = "[\"\\&" _ctrl "]"
     _ctrl = "[" _ctrl "]"
 }
+
 function _ord_init() {
     for (i=0; i<256; i++) {
 	_ord[sprintf("%c",i)]=i
     }
 }
+
 function _amp_init() {
     _amp["&amp;"] = "&"
     _amp["&lt;"] = "<"
@@ -471,14 +480,11 @@ function _amp_init() {
     _amp["&apos;"] = "'"
     _amp["&quot;"] = "\\\""
 }
+
 BEGIN {
-    # inits
     _esc_init()
     _ord_init()
     _amp_init()
-    # xml parsing trick
-    RS=">"
-    # variables
     delete meta
     pheight=0
     pwidth=0
@@ -489,12 +495,17 @@ BEGIN {
     dpi = 300 # use awk -f xml2dsed.awk dpi=xxx to override
     dometa=1  # use awk -f xml2dsed.awk dometa=0 to override
     dotext=1  # use awk -f xml2dsed.awk dotext=0 to override
+    RS=">"    # xml parsing wants record delimiter set to ">"
 }
+
 # return character code
+
 function ord(str) {
     return _ord[substr(str,1,1)]
 }
-# print c string
+
+# print properly escaped c string
+
 function pstr(str,tmp) {
     printf("\"")
     while (str) {
@@ -520,7 +531,9 @@ function pstr(str,tmp) {
     }
     printf("\"")
 }
+
 # sax-like callbacks
+
 function charData(str) {
     if (context == "title") {
 	meta["Title"] = str
@@ -533,6 +546,7 @@ function charData(str) {
 	if (match(str,/[^ ]/)) { content = str } else { content = "" }
     }
 }
+
 function startElement(tag,attrs) {
     if (tag=="head" && ! context && dometa) {
 	context = "head"
@@ -561,6 +575,7 @@ function startElement(tag,attrs) {
 	}
     }
 }
+
 function endElement(tag) {
     if (tag == "title" && context == "title") {
 	context = "head"
@@ -585,6 +600,7 @@ function endElement(tag) {
 	content = ""
     }
 }
+
 # xml parser (for pdftotext!)
 {
     str = $0
@@ -629,9 +645,20 @@ function endElement(tag) {
     }	    
 }
 EOF
-    # import pdftotext data
-    $pdftotext -bbox "$infile" "-" \
-        | awk -f $xml2dsed dpi=$dpi dometa=$popplermeta dotext=$popplertext \
-        | $djvused "$outfile" -s
 
+    # prepare djvused script
+    dsedscript="$tempdir/dsed"
+    if test -z "$run" 
+    then
+        "$pdftotext" -bbox "$infile" "-" \
+            | awk -f $xml2dsed dpi=$dpi dometa=$popplermeta dotext=$popplertext \
+            > "$dsedscript"
+    else
+        $run "$pdftotext" -bbox "$infile" "-" \
+            \| awk -f $xml2dsed dpi=$dpi dometa=$popplermeta dotext=$popplertext \
+            \> "$dsedscript"
+    fi
+    
+    # execute dsed script
+    $run "$djvused" $dsedverbosity -f "$dsedscript" -s "$outfile"
 fi
