@@ -3384,7 +3384,7 @@ pdfmark_recode(p2mem *mem, const gs_param_string *p, char **out)
     ptr = utf;
     if (len>=2 && tmp[0]==0xfe && tmp[1]==0xff) // unicode
         for (i=0; i<len-1; i+=2)
-            ptr += unicode_to_utf8((gs_char)(tmp[i]+((int)tmp[i+1]<<8)), ptr);
+            ptr += unicode_to_utf8((gs_char)(tmp[i+1]+((int)tmp[i]<<8)), ptr);
     else
         for (i=0; i<len; i++)
             ptr += pdfdocencoding_to_utf8(tmp[i], ptr);
