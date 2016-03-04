@@ -3382,12 +3382,19 @@ pdfmark_recode(p2mem *mem, const gs_param_string *p, char **out)
     len = ptr - tmp;
     if (! (utf = p2mem_alloc(mem, 3*len))) goto vmerror;
     ptr = utf;
-    if (len>=2 && tmp[0]==0xfe && tmp[1]==0xff) // unicode
-        for (i=0; i<len-1; i+=2)
-            ptr += unicode_to_utf8((gs_char)(tmp[i+1]+((int)tmp[i]<<8)), ptr);
-    else
+    if (len>=2 && tmp[0]==0xfe && tmp[1]==0xff) { // unicode
+        for (i=0; i<len-2; i+=2)
+	    if (i<len-4 && ((tmp[i]&0xfc)==0xd8) && ((tmp[i+2]&0xfc)==0xdc)) {
+		ptr += unicode_to_utf8((gs_char)0x10000 + // surrogate pair
+				       (((gs_char)tmp[i]&0x3)<<18) + ((gs_char)tmp[i+1]<<10) +
+				       (((gs_char)tmp[i+2]&0x3)<<8) + ((gs_char)tmp[i+3]), ptr);
+		i += 2;
+	    } else
+		ptr += unicode_to_utf8(((gs_char)tmp[i]<<8)+(gs_char)tmp[i+1], ptr);
+    } else {
         for (i=0; i<len; i++)
             ptr += pdfdocencoding_to_utf8(tmp[i], ptr);
+    }
     len = ptr - utf;
     if ((*out = make_ps_string(mem, utf, len)))
         goto xit;
