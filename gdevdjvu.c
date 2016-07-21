@@ -4590,7 +4590,7 @@ lowcolor_separate(gx_device_djvu *cdev, drawlist *dl,
     int code;
     p2mem *mem = cdev->pmem;
     lowcolordata **band = 0;
-    int size;
+    size_t size;
     int w, h, xb, yb;
     lowcolordata *cd;
     int raster;
